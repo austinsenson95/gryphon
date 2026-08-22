@@ -1,7 +1,9 @@
 """LLM abstraction tests: contract shapes + mock provider rules + factory."""
 
+from backend.core.config import Settings
 from backend.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMToolCall
-from backend.llm.provider import MockLLMProvider, get_llm_provider
+from backend.llm.provider import MockLLMProvider, create_provider, get_llm_provider
+from backend.llm.xai import XAIProvider
 
 
 def _user(text: str) -> list[LLMMessage]:
@@ -63,9 +65,38 @@ async def test_mock_synthesizes_answer_from_tool_result(mock_provider):
 
 
 def test_provider_factory_falls_back_to_mock():
-    from backend.core.config import Settings
-
-    settings = Settings(llm_api_key="", _env_file=None)
+    settings = Settings(llm_api_key="", xai_api_key="", _env_file=None)
     provider = get_llm_provider(settings)
     assert isinstance(provider, MockLLMProvider)
     assert isinstance(provider, LLMProvider)
+
+
+def test_create_provider_returns_xai_when_configured():
+    settings = Settings(
+        llm_provider="xai",
+        xai_api_key="xai-test-key",
+        xai_model="grok-2-latest",
+        _env_file=None,
+    )
+    provider = create_provider("xai", settings)
+    assert isinstance(provider, XAIProvider)
+
+
+def test_create_provider_xai_without_key_falls_back_to_mock():
+    settings = Settings(
+        llm_provider="xai",
+        xai_api_key="",
+        _env_file=None,
+    )
+    provider = create_provider("xai", settings)
+    assert isinstance(provider, MockLLMProvider)
+
+
+def test_xai_provider_uses_configured_model():
+    settings = Settings(
+        xai_api_key="xai-test-key",
+        xai_model="grok-4.5",
+        _env_file=None,
+    )
+    provider = XAIProvider(settings)
+    assert provider._model == "grok-4.5"

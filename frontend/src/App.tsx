@@ -19,7 +19,7 @@ import { GhibliRobotHero } from "@/components/ui/ghibli-robot-hero"
 import { GRYPHON_HERO_BACKGROUND } from "@/components/ui/ghibli-robot-hero.demo"
 import { GryphonProvider, useGryphonEvents } from "@/lib/useGryphonEvents"
 import { cn } from "@/lib/utils"
-import type { ConnectionStatus } from "@/lib/types"
+import type { ConnectionStatus, LLMProvider } from "@/lib/types"
 
 const DOT_STYLES: Record<ConnectionStatus, string> = {
   open: "bg-emerald-400",
@@ -35,8 +35,57 @@ const DOT_LABELS: Record<ConnectionStatus, string> = {
   closed: "Disconnected",
 }
 
+const PROVIDER_LABELS: Record<LLMProvider, string> = {
+  ollama: "Ollama",
+  xai: "xAI",
+  mock: "Mock",
+}
+
+function ProviderToggle() {
+  const { healthOk, llmMode, provider, availableProviders, switchingProvider, switchProvider } =
+    useGryphonEvents()
+
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        data-testid="llm-mode-badge"
+        className={cn(
+          "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider backdrop-blur-sm",
+          healthOk
+            ? llmMode === "live"
+              ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-200"
+              : "border-amber-300/35 bg-amber-400/15 text-amber-200"
+            : "border-red-400/35 bg-red-500/15 text-red-300",
+        )}
+      >
+        {healthOk ? (llmMode === "live" ? "LIVE" : "MOCK") : "Offline"}
+      </span>
+      <select
+        aria-label="LLM provider"
+        data-testid="provider-toggle"
+        value={provider ?? ""}
+        disabled={!healthOk || switchingProvider}
+        onChange={(e) => switchProvider(e.target.value as LLMProvider)}
+        className={cn(
+          "h-7 cursor-pointer rounded-lg border bg-slate-950/40 px-2 text-xs font-medium text-white/90 backdrop-blur-sm transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300/40",
+          switchingProvider ? "opacity-60 cursor-wait" : "hover:bg-slate-900/60",
+        )}
+      >
+        <option value="" disabled>
+          {switchingProvider ? "Switching…" : "Provider"}
+        </option>
+        {availableProviders.map((p) => (
+          <option key={p} value={p}>
+            {PROVIDER_LABELS[p]}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function Header() {
-  const { connectionStatus, healthOk, llmMode } = useGryphonEvents()
+  const { connectionStatus } = useGryphonEvents()
   return (
     <header className="flex flex-wrap items-center gap-3">
       <h1 className="bg-gradient-to-r from-amber-300 via-amber-400 to-cyan-300 bg-clip-text text-2xl font-bold tracking-[0.3em] text-transparent">
@@ -55,19 +104,7 @@ function Header() {
         />
         {DOT_LABELS[connectionStatus]}
       </span>
-      <span
-        data-testid="llm-mode-badge"
-        className={cn(
-          "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider backdrop-blur-sm",
-          healthOk
-            ? llmMode === "live"
-              ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-200"
-              : "border-amber-300/35 bg-amber-400/15 text-amber-200"
-            : "border-red-400/35 bg-red-500/15 text-red-300",
-        )}
-      >
-        {healthOk ? `LLM: ${llmMode ?? "unknown"}` : "Backend offline"}
-      </span>
+      <ProviderToggle />
     </header>
   )
 }

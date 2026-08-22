@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # LLM
-    llm_provider: str = "ollama"  # "ollama" | "openai_compatible" (mock fallback)
+    llm_provider: str = "ollama"  # "ollama" | "xai" | "openai_compatible" (mock fallback)
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""
@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = ""
     ollama_timeout: float = 60.0
+
+    # xAI (Grok) provider
+    xai_api_key: str = ""
+    xai_base_url: str = "https://api.x.ai/v1"
+    xai_model: str = "grok-4.5"
 
     # Speech-to-text
     stt_provider: str = "local"  # "local" | "disabled"
@@ -100,9 +105,11 @@ class Settings(BaseSettings):
 
     @property
     def llm_mode(self) -> str:
-        """'live' when a real model endpoint is configured (Ollama or
+        """'live' when a real model endpoint is configured (Ollama, xAI, or
         OpenAI-compatible), 'mock' otherwise."""
         if self.llm_provider == "ollama" and self.ollama_model:
+            return "live"
+        if self.llm_provider == "xai" and self.xai_api_key:
             return "live"
         if self.llm_provider == "openai_compatible" and self.llm_api_key:
             return "live"

@@ -14,8 +14,9 @@ describe("App", () => {
     expect(screen.getByText("Chat")).toBeInTheDocument()
     expect(screen.getByText("Presence")).toBeInTheDocument()
 
-    // health fetch resolves -> llm mode badge shows mock mode
-    expect(await screen.findByText("LLM: mock")).toBeInTheDocument()
+    // health fetch resolves -> live/mock badge and provider toggle appear
+    expect(await screen.findByText("MOCK")).toBeInTheDocument()
     expect(screen.getByTestId("connection-dot")).toBeInTheDocument()
+    expect(screen.getByTestId("provider-toggle")).toBeInTheDocument()
   })
 })

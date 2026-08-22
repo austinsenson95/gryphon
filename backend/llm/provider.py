@@ -305,9 +305,9 @@ class OpenAICompatibleProvider(LLMProvider):
         return {"role": msg.role, "content": msg.content}
 
 
-def get_llm_provider(settings: Settings) -> LLMProvider:
-    """Factory: Ollama (local) or OpenAI-compatible when configured, else mock."""
-    if settings.llm_provider == "ollama" and settings.ollama_model:
+def create_provider(provider: str, settings: Settings) -> LLMProvider:
+    """Build a provider by name without touching ``settings.llm_provider``."""
+    if provider == "ollama" and settings.ollama_model:
         from backend.llm.ollama import OllamaProvider
 
         logger.info(
@@ -315,8 +315,21 @@ def get_llm_provider(settings: Settings) -> LLMProvider:
             extra={"provider": "ollama", "mode": "live", "model": settings.ollama_model},
         )
         return OllamaProvider(settings)
-    if settings.llm_provider == "openai_compatible" and settings.llm_api_key:
+    if provider == "xai" and settings.xai_api_key:
+        from backend.llm.xai import XAIProvider
+
+        logger.info(
+            "llm.provider_selected",
+            extra={"provider": "xai", "mode": "live", "model": settings.xai_model},
+        )
+        return XAIProvider(settings)
+    if provider == "openai_compatible" and settings.llm_api_key:
         logger.info("llm.provider_selected", extra={"provider": "openai_compatible", "mode": "live"})
         return OpenAICompatibleProvider(settings)
     logger.info("llm.provider_selected", extra={"provider": "mock", "mode": "mock"})
     return MockLLMProvider()
+
+
+def get_llm_provider(settings: Settings) -> LLMProvider:
+    """Factory: Ollama, xAI, or OpenAI-compatible when configured, else mock."""
+    return create_provider(settings.llm_provider, settings)

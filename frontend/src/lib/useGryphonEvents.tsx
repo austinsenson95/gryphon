@@ -15,13 +15,14 @@ import {
   SUCCESS_IDLE_MS,
   type AvatarState,
 } from "@/avatar/stateMachine"
-import { getEvents, getHealth } from "@/lib/api"
+import { getEvents, getHealth, getProviderInfo, setProvider } from "@/lib/api"
 import { createGryphonSocket } from "@/lib/ws"
 import type {
   AppNotification,
   ConnectionStatus,
   CurrentTask,
   GryphonEvent,
+  LLMProvider,
   ToolActivityItem,
 } from "@/lib/types"
 
@@ -33,6 +34,9 @@ export interface GryphonState {
   connectionStatus: ConnectionStatus
   healthOk: boolean
   llmMode: "live" | "mock" | null
+  provider: LLMProvider | null
+  availableProviders: LLMProvider[]
+  switchingProvider: boolean
   avatarState: AvatarState
   currentTask: CurrentTask | null
   toolActivity: ToolActivityItem[]
@@ -40,6 +44,7 @@ export interface GryphonState {
   sessionId: string | null
   setSessionId: (id: string) => void
   dismissNotification: (id: string) => void
+  switchProvider: (provider: LLMProvider) => Promise<void>
 }
 
 const defaultState: GryphonState = {
@@ -47,6 +52,9 @@ const defaultState: GryphonState = {
   connectionStatus: "connecting",
   healthOk: false,
   llmMode: null,
+  provider: null,
+  availableProviders: ["ollama", "xai"],
+  switchingProvider: false,
   avatarState: "IDLE",
   currentTask: null,
   toolActivity: [],
@@ -54,6 +62,7 @@ const defaultState: GryphonState = {
   sessionId: null,
   setSessionId: () => {},
   dismissNotification: () => {},
+  switchProvider: async () => {},
 }
 
 const GryphonContext = createContext<GryphonState>(defaultState)
@@ -85,6 +94,12 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
     useState<ConnectionStatus>("connecting")
   const [healthOk, setHealthOk] = useState(false)
   const [llmMode, setLlmMode] = useState<"live" | "mock" | null>(null)
+  const [provider, setProviderState] = useState<LLMProvider | null>(null)
+  const [availableProviders, setAvailableProviders] = useState<LLMProvider[]>([
+    "ollama",
+    "xai",
+  ])
+  const [switchingProvider, setSwitchingProvider] = useState(false)
   const [avatarState, setAvatarState] = useState<AvatarState>("IDLE")
   const [currentTask, setCurrentTask] = useState<CurrentTask | null>(null)
   const [toolActivity, setToolActivity] = useState<ToolActivityItem[]>([])
@@ -233,14 +248,50 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
     [applyAvatarEvent, pushNotification],
   )
 
-  // Health check -> connection dot + llm mode badge
+  // Health check + provider info -> connection dot + llm mode badge
+  const refreshHealth = useCallback(async () => {
+    try {
+      const health = await getHealth()
+      setHealthOk(health.status === "ok")
+      setLlmMode(health.llm_mode ?? null)
+    } catch {
+      setHealthOk(false)
+    }
+  }, [])
+
+  const switchProvider = useCallback(
+    async (next: LLMProvider) => {
+      if (switchingProvider || next === provider) return
+      setSwitchingProvider(true)
+      try {
+        const info = await setProvider(next)
+        setProviderState(info.provider)
+        setAvailableProviders(info.available)
+        setLlmMode(info.mode)
+        await refreshHealth()
+      } catch (err) {
+        pushNotification({
+          id: `notif_provider_switch_${Date.now()}`,
+          level: "error",
+          title: "Provider switch failed",
+          body: err instanceof Error ? err.message : "Could not switch LLM provider.",
+        })
+      } finally {
+        setSwitchingProvider(false)
+      }
+    },
+    [provider, switchingProvider, refreshHealth, pushNotification],
+  )
+
   useEffect(() => {
     let cancelled = false
-    getHealth()
-      .then((health) => {
+    Promise.all([getHealth(), getProviderInfo()])
+      .then(([health, info]) => {
         if (cancelled) return
         setHealthOk(health.status === "ok")
         setLlmMode(health.llm_mode ?? null)
+        setProviderState(info.provider)
+        setAvailableProviders(info.available)
       })
       .catch(() => {
         if (!cancelled) setHealthOk(false)
@@ -285,6 +336,9 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
       connectionStatus,
       healthOk,
       llmMode,
+      provider,
+      availableProviders,
+      switchingProvider,
       avatarState,
       currentTask,
       toolActivity,
@@ -292,18 +346,23 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
       sessionId,
       setSessionId,
       dismissNotification,
+      switchProvider,
     }),
     [
       events,
       connectionStatus,
       healthOk,
       llmMode,
+      provider,
+      availableProviders,
+      switchingProvider,
       avatarState,
       currentTask,
       toolActivity,
       notifications,
       sessionId,
       dismissNotification,
+      switchProvider,
     ],
   )
 

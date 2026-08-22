@@ -34,11 +34,19 @@ export interface GryphonEvent {
 
 export type ConnectionStatus = "connecting" | "open" | "reconnecting" | "closed"
 
+export type LLMProvider = "ollama" | "xai" | "mock"
+
 export interface HealthResponse {
   status: string
   service: string
   version?: string
   llm_mode?: "live" | "mock"
+}
+
+export interface ProviderInfoResponse {
+  provider: LLMProvider
+  mode: "live" | "mock"
+  available: LLMProvider[]
 }
 
 export interface VoiceResponse extends ChatResponse {

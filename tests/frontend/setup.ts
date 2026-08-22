@@ -63,6 +63,13 @@ vi.stubGlobal(
         llm_mode: "mock",
       })
     }
+    if (url.includes("/api/llm/provider")) {
+      return jsonResponse({
+        provider: "mock",
+        mode: "mock",
+        available: ["ollama", "xai"],
+      })
+    }
     if (url.includes("/api/events")) return jsonResponse([])
     return jsonResponse({ error: { code: "not_found", message: "not found" } }, 404)
   }),

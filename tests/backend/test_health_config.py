@@ -44,6 +44,24 @@ def test_config_env_override(monkeypatch):
     assert settings.llm_mode == "live"
 
 
+def test_config_xai_live_mode(monkeypatch):
+    from backend.core.config import Settings
+
+    monkeypatch.setenv("LLM_PROVIDER", "xai")
+    monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
+    settings = Settings(_env_file=None)
+    assert settings.llm_mode == "live"
+
+
+def test_config_xai_without_key_is_mock(monkeypatch):
+    from backend.core.config import Settings
+
+    monkeypatch.setenv("LLM_PROVIDER", "xai")
+    monkeypatch.setenv("XAI_API_KEY", "")
+    settings = Settings(_env_file=None)
+    assert settings.llm_mode == "mock"
+
+
 def test_async_database_url_translation():
     from backend.core.config import Settings
 

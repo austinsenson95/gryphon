@@ -2,7 +2,9 @@ import type {
   ChatResponse,
   GryphonEvent,
   HealthResponse,
+  ProviderInfoResponse,
   VoiceResponse,
+  LLMProvider,
 } from "@/lib/types"
 
 /**
@@ -47,6 +49,17 @@ export function sendChat(
 
 export function getEvents(limit = 50): Promise<GryphonEvent[]> {
   return request<GryphonEvent[]>(`/api/events?limit=${limit}`)
+}
+
+export function getProviderInfo(): Promise<ProviderInfoResponse> {
+  return request<ProviderInfoResponse>("/api/llm/provider")
+}
+
+export function setProvider(provider: LLMProvider): Promise<ProviderInfoResponse> {
+  return request<ProviderInfoResponse>("/api/llm/provider", {
+    method: "POST",
+    body: JSON.stringify({ provider }),
+  })
 }
 
 /** Upload recorded audio for local speech-to-text + agent execution. */

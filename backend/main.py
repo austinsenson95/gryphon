@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.api import chat, events, health, tasks, voice, websocket
+from backend.api import chat, events, health, llm, tasks, voice, websocket
 from backend.core.config import APP_VERSION, Settings, get_settings
 from backend.core.logging import get_logger, setup_logging
 from backend.core.state import AppState
@@ -140,6 +140,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     app.include_router(health.router)
+    app.include_router(llm.router)
     app.include_router(chat.router)
     app.include_router(voice.router)
     app.include_router(tasks.router)

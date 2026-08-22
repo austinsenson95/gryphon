@@ -5,9 +5,24 @@ cd "$(dirname "$0")/.."
 
 echo "== Gryphon setup =="
 
+# Use a PyO3/pydantic-core compatible Python (3.11–3.13). The system default
+# may be 3.14+, which cannot build pydantic-core wheels at this time.
+PYTHON_BIN=""
+for py in python3.12 python3.11 python3.13; do
+  if command -v "$py" >/dev/null 2>&1; then
+    PYTHON_BIN="$py"
+    break
+  fi
+done
+if [ -z "$PYTHON_BIN" ]; then
+  echo "Error: no supported Python interpreter found (need python3.11, python3.12, or python3.13)." >&2
+  exit 1
+fi
+echo "Using Python interpreter: $PYTHON_BIN"
+
 # Backend
 if [ ! -d .venv ]; then
-  python3 -m venv .venv
+  "$PYTHON_BIN" -m venv .venv
 fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
