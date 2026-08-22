@@ -15,16 +15,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.api import chat, events, health, tasks, websocket
+from backend.api import chat, events, health, tasks, voice, websocket
 from backend.core.config import APP_VERSION, Settings, get_settings
 from backend.core.logging import get_logger, setup_logging
 from backend.core.state import AppState
-from backend.memory import retrieval
+from backend.memory import retrieval as repository
 from backend.memory.database import Database
 from backend.events.bus import EventBus
 from backend.events.events import envelope_from_row
 from backend.events.websocket_manager import WebSocketManager
+from backend.llm.ollama import OllamaProvider
 from backend.llm.provider import get_llm_provider
+from backend.stt.local import get_stt_provider
 from backend.tools.registry import create_default_registry
 
 logger = get_logger("gryphon.main")
@@ -51,9 +53,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db = Database(settings.async_database_url)
         await db.create_tables()
 
-        registry = create_default_registry(settings)
-        provider = get_llm_provider(settings)
-
         async def recent_events(limit: int):
             async with db.session_factory() as session:
                 rows = await repository.get_recent_events(session, limit=limit)
@@ -62,6 +61,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ws_manager = WebSocketManager(history_provider=recent_events)
         bus = EventBus(db.session_factory, ws_manager)
 
+        # Registry is built with the bus so workflows stream progress events.
+        registry = create_default_registry(settings, bus=bus)
+        provider = get_llm_provider(settings)
+        stt = get_stt_provider(settings)
+
         app.state.gryphon = AppState(
             settings=settings,
             db=db,
@@ -69,7 +73,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             provider=provider,
             bus=bus,
             ws_manager=ws_manager,
+            stt=stt,
         )
+
+        # Startup verification for Ollama: report clearly instead of failing
+        # silently later (the app still boots so /api/health/ollama can diagnose).
+        if isinstance(provider, OllamaProvider):
+            ollama_health = await provider.health_check()
+            if ollama_health["reachable"] and ollama_health["model_available"] and ollama_health["inference_ok"]:
+                logger.info("llm.ollama.healthy", extra={"model": ollama_health["model"]})
+            else:
+                logger.warning(
+                    "llm.ollama.unhealthy",
+                    extra={"detail": {k: v for k, v in ollama_health.items() if k != "installed_models"}},
+                )
+
         logger.info(
             "app.started",
             extra={
@@ -123,6 +141,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(chat.router)
+    app.include_router(voice.router)
     app.include_router(tasks.router)
     app.include_router(events.router)
     app.include_router(websocket.router)

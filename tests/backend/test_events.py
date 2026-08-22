@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from backend.memory import retrieval
+from backend.memory import retrieval as repository
 from backend.memory.models import Event
 from backend.events.events import EventEnvelope, EventType, envelope_from_row, new_event
 
@@ -31,6 +31,8 @@ def test_all_spec_event_types_defined():
         "TOOL_CALL_STARTED", "TOOL_CALL_COMPLETED", "TOOL_CALL_FAILED",
         "AGENT_RESPONSE", "TASK_STARTED", "TASK_COMPLETED", "TASK_FAILED",
         "USER_APPROVAL_REQUIRED",
+        "STT_STARTED", "STT_COMPLETED", "STT_FAILED",
+        "WORKFLOW_STARTED", "WORKFLOW_COMPLETED",
     }
     assert set(EventType.ALL) == expected
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from backend.core.config import Settings
 from backend.core.logging import get_logger
-from backend.tools import browser, research, terminal
+from backend.tools import browser, desktop, research, terminal, workflows
 from backend.tools.schemas import Tool
 
 logger = get_logger("gryphon.tools")
@@ -50,10 +50,12 @@ class ToolRegistry:
         ]
 
 
-def create_default_registry(settings: Settings) -> ToolRegistry:
-    """Build the Phase 0 registry with all built-in tools."""
+def create_default_registry(settings: Settings, bus=None) -> ToolRegistry:
+    """Build the registry with all built-in tools (Phase 0 + Phase 1)."""
     registry = ToolRegistry()
     terminal.register(registry, settings)
     research.register(registry, settings)
     browser.register(registry, settings)
+    desktop.register(registry, settings)
+    workflows.register(registry, settings, bus=bus)
     return registry

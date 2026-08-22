@@ -29,7 +29,7 @@ describe("AvatarRenderer", () => {
       <AvatarRenderer state="IDLE" />,
     )
     const img = container.querySelector("img")
-    expect(img).toHaveAttribute("src", "/avatar/gryphon.png")
+    expect(img).toHaveAttribute("src", "/avatar/idle/gryphon.png")
 
     fireEvent.error(img!)
     expect(getByTestId("avatar-fallback")).toBeInTheDocument()

@@ -13,6 +13,11 @@ describe("avatar state machine (SPEC §3 mapping)", () => {
     ["TOOL_CALL_FAILED", "ERROR"],
     ["TASK_FAILED", "ERROR"],
     ["USER_APPROVAL_REQUIRED", "WAITING"],
+    ["STT_STARTED", "LISTENING"],
+    ["STT_COMPLETED", "THINKING"],
+    ["STT_FAILED", "ERROR"],
+    ["WORKFLOW_STARTED", "WORKING"],
+    ["WORKFLOW_COMPLETED", "SUCCESS"],
   ] as const)("%s -> %s", (type, expected) => {
     expect(nextAvatarState({ type })).toBe(expected)
   })

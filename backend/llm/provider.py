@@ -1,10 +1,14 @@
 """LLM provider selection.
 
-``get_llm_provider(settings)`` returns an OpenAI-compatible provider when
-``LLM_PROVIDER=openai_compatible`` AND ``LLM_API_KEY`` is set; otherwise the
-deterministic, network-free :class:`MockLLMProvider`. The mock is the
-sanctioned offline fallback (SPEC §2): it is rule-based, but the tool calls it
-emits are REAL — the agent executes them through the tool registry.
+``get_llm_provider(settings)`` returns:
+  * :class:`OllamaProvider` when ``LLM_PROVIDER=ollama`` and ``OLLAMA_MODEL``
+    is set (local model runtime — Phase 1 default);
+  * an OpenAI-compatible provider when ``LLM_PROVIDER=openai_compatible`` AND
+    ``LLM_API_KEY`` is set;
+  * otherwise the deterministic, network-free :class:`MockLLMProvider`.
+The mock is the sanctioned offline fallback (SPEC §2): it is rule-based, but
+the tool calls it emits are REAL — the agent executes them through the tool
+registry.
 """
 
 from __future__ import annotations
@@ -20,13 +24,61 @@ from backend.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMToolCall
 logger = get_logger("gryphon.llm")
 
 _OPEN_URL_RE = re.compile(r"open\s+(https?://\S+)", re.IGNORECASE)
-_SEARCH_RE = re.compile(r"search(?:\s+for)?\s+(.+)", re.IGNORECASE | re.DOTALL)
+_SEARCH_RE = re.compile(r"search(?:\s+(?:the\s+web\s+)?for)?\s+(.+)", re.IGNORECASE | re.DOTALL)
+_OPEN_APP_RE = re.compile(
+    r"open\s+(?:my\s+)?(safari|chrome|google chrome|firefox|arc|vs\s*code|"
+    r"visual studio code|terminal|iterm|notes|calendar|finder|slack|spotify)\b",
+    re.IGNORECASE,
+)
+_KNOWN_SITES = {
+    "github": "https://github.com",
+    "google": "https://www.google.com",
+    "youtube": "https://www.youtube.com",
+    "hacker news": "https://news.ycombinator.com",
+}
+_OPEN_SITE_RE = re.compile(
+    r"open\s+(github|google|youtube|hacker\s+news)\b", re.IGNORECASE
+)
+_OPEN_PROJECT_RE = re.compile(r"open\s+(?:my\s+)?(\w[\w-]*)\s+project\b", re.IGNORECASE)
+_OPEN_FOLDER_RE = re.compile(r"open\s+(?:my\s+)?(\w[\w-]*)\s+folder\b", re.IGNORECASE)
+_WORKFLOW_RE = re.compile(
+    r"(?:start|run)\s+(?:my\s+)?([\w\s-]+?)(?:\s+workflow)?\s*$", re.IGNORECASE
+)
+
+_APP_ALIASES = {
+    "safari": "Safari",
+    "chrome": "Google Chrome",
+    "google chrome": "Google Chrome",
+    "firefox": "Firefox",
+    "arc": "Arc",
+    "vs code": "Visual Studio Code",
+    "vscode": "Visual Studio Code",
+    "visual studio code": "Visual Studio Code",
+    "terminal": "Terminal",
+    "iterm": "iTerm",
+    "notes": "Notes",
+    "calendar": "Calendar",
+    "finder": "Finder",
+    "slack": "Slack",
+    "spotify": "Spotify",
+}
+
+_WORKFLOW_ALIASES = {
+    "development environment": "start_development",
+    "development setup": "start_development",
+    "dev environment": "start_development",
+    "dev setup": "start_development",
+    "development": "start_development",
+    "research": "research",
+    "morning": "morning",
+}
 
 _MOCK_IDENTITY = (
     "I'm Gryphon, a local-first personal AI assistant (running in mock mode — "
-    "no LLM API key configured). I can tell you the time, search the web, and "
-    "open URLs in a browser. Try: \"What time is it?\", \"search for local "
-    "news\", or \"open https://example.com\"."
+    "no LLM configured). I can open apps and websites, search the web, open "
+    "projects and folders, and run workflows. Try: \"Open GitHub\", \"Open "
+    "VS Code\", \"Search the web for local news\", or \"Start my development "
+    "environment\"."
 )
 
 
@@ -35,13 +87,18 @@ def _tool_call(name: str, arguments: dict) -> LLMToolCall:
 
 
 class MockLLMProvider(LLMProvider):
-    """Deterministic rule-based provider used when no credentials exist.
+    """Deterministic rule-based provider used when no model is configured.
 
     Rules (first match wins, evaluated against the latest user message):
-      * contains "time"                     -> system.get_time {}
-      * matches /open\\s+(https?://\\S+)/i   -> browser.open_url {"url": ...}
-      * contains "search" + `search[ for] <q>` -> web.search {"query": q}
-      * otherwise                           -> conversational content reply
+      * contains "time"                          -> system.get_time {}
+      * "open <app>" (known alias)               -> desktop.open_application
+      * "open my <name> project"                 -> desktop.open_project
+      * "open my <name> folder"                  -> desktop.open_folder
+      * "open <github|google|youtube|...>"       -> desktop.open_url
+      * /open\\s+(https?://\\S+)/i               -> desktop.open_url {"url": ...}
+      * "search [the web] [for] <q>"             -> desktop.search_web
+      * "start/run my <workflow>" (known alias)  -> workflow.run
+      * otherwise                                -> conversational reply
 
     When the latest message is a tool result, it synthesizes a natural-language
     sentence from the tool data so the agent can finish the turn.
@@ -68,11 +125,50 @@ class MockLLMProvider(LLMProvider):
         if "time" in lowered:
             return LLMResponse(tool_calls=[_tool_call("system.get_time", {})])
 
+        match = _WORKFLOW_RE.search(user_text)
+        if match and any(k in lowered for k in ("start", "run", "workflow")):
+            key = match.group(1).strip().lower()
+            workflow = _WORKFLOW_ALIASES.get(key)
+            if workflow:
+                return LLMResponse(
+                    tool_calls=[_tool_call("workflow.run", {"name": workflow})]
+                )
+
+        match = _OPEN_APP_RE.search(user_text)
+        if match:
+            app = _APP_ALIASES[match.group(1).lower().replace("  ", " ")]
+            return LLMResponse(
+                tool_calls=[_tool_call("desktop.open_application", {"application": app})]
+            )
+
+        match = _OPEN_PROJECT_RE.search(user_text)
+        if match:
+            return LLMResponse(
+                tool_calls=[
+                    _tool_call("desktop.open_project", {"project": match.group(1).lower()})
+                ]
+            )
+
+        match = _OPEN_FOLDER_RE.search(user_text)
+        if match:
+            return LLMResponse(
+                tool_calls=[
+                    _tool_call(
+                        "desktop.open_folder", {"path": f"~/{match.group(1).capitalize()}"}
+                    )
+                ]
+            )
+
         match = _OPEN_URL_RE.search(user_text)
         if match:
             return LLMResponse(
-                tool_calls=[_tool_call("browser.open_url", {"url": match.group(1)})]
+                tool_calls=[_tool_call("desktop.open_url", {"url": match.group(1)})]
             )
+
+        match = _OPEN_SITE_RE.search(user_text)
+        if match:
+            url = _KNOWN_SITES[re.sub(r"\s+", " ", match.group(1).lower())]
+            return LLMResponse(tool_calls=[_tool_call("desktop.open_url", {"url": url})])
 
         if "search" in lowered:
             match = _SEARCH_RE.search(user_text)
@@ -80,7 +176,7 @@ class MockLLMProvider(LLMProvider):
                 query = match.group(1).strip().rstrip("?.!")
                 if query:
                     return LLMResponse(
-                        tool_calls=[_tool_call("web.search", {"query": query})]
+                        tool_calls=[_tool_call("desktop.search_web", {"query": query})]
                     )
 
         return LLMResponse(content=_MOCK_IDENTITY)
@@ -125,13 +221,36 @@ class MockLLMProvider(LLMProvider):
             if data.get("mock"):
                 lines.append("(mock results — no search API configured)")
             return "\n".join(lines)
-        if name == "browser.open_url":
+        if name == "desktop.open_url" or name == "browser.open_url":
             if data.get("opened"):
-                return f"I opened {data.get('url')} — page title: \"{data.get('title', '')}\"."
+                extra = f" — page title: \"{data.get('title')}\"" if data.get("title") else ""
+                return f"I opened {data.get('url')}{extra}."
             return (
-                f"I couldn't fully open {data.get('url')}: "
-                f"{data.get('note', 'browser unavailable')}."
+                f"I couldn't open {data.get('url')}: "
+                f"{data.get('note', data.get('reason', 'browser unavailable'))}."
             )
+        if name == "desktop.search_web":
+            return f"I opened a web search for \"{data.get('query', '')}\"."
+        if name == "desktop.open_application":
+            return f"I opened {data.get('application', 'the application')}."
+        if name == "desktop.open_folder":
+            return f"I opened the folder {data.get('path', '')}."
+        if name == "desktop.open_project":
+            return f"I opened the {data.get('project', '')} project at {data.get('path', '')}."
+        if name == "desktop.open_terminal":
+            return "I opened a terminal window."
+        if name == "workflow.run":
+            steps = data.get("steps", [])
+            done = sum(1 for s in steps if s.get("success"))
+            failed = [s for s in steps if not s.get("success")]
+            summary = (
+                f"Workflow \"{data.get('workflow', '')}\" finished: "
+                f"{done}/{len(steps)} steps succeeded."
+            )
+            if failed:
+                names = ", ".join(s.get("command", "?") for s in failed)
+                summary += f" Failed steps: {names}."
+            return summary
         return f"Tool {name} returned: {json.dumps(data, default=str)}"
 
 
@@ -187,7 +306,15 @@ class OpenAICompatibleProvider(LLMProvider):
 
 
 def get_llm_provider(settings: Settings) -> LLMProvider:
-    """Factory: live OpenAI-compatible provider when configured, else mock."""
+    """Factory: Ollama (local) or OpenAI-compatible when configured, else mock."""
+    if settings.llm_provider == "ollama" and settings.ollama_model:
+        from backend.llm.ollama import OllamaProvider
+
+        logger.info(
+            "llm.provider_selected",
+            extra={"provider": "ollama", "mode": "live", "model": settings.ollama_model},
+        )
+        return OllamaProvider(settings)
     if settings.llm_provider == "openai_compatible" and settings.llm_api_key:
         logger.info("llm.provider_selected", extra={"provider": "openai_compatible", "mode": "live"})
         return OpenAICompatibleProvider(settings)

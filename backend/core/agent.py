@@ -15,11 +15,12 @@ from backend.core import executor, planner
 from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.core.permissions import requires_approval
-from backend.memory import retrieval
+from backend.memory import retrieval as repository
 from backend.memory.database import Database
 from backend.events.bus import EventBus
 from backend.events.events import EventType, new_event
 from backend.llm.base import LLMMessage, LLMProvider
+from backend.llm.ollama import OllamaUnavailableError
 from backend.services.message_service import MessageService
 from backend.services.notification_service import NotificationService
 from backend.services.task_service import TaskService
@@ -79,7 +80,16 @@ class Agent:
             )
         except Exception as exc:  # structured failure, never crash the handler
             logger.exception("agent.run_failed", extra={"task_id": task.id})
-            error = {"code": "AGENT_ERROR", "message": str(exc)}
+            llm_down = isinstance(exc, OllamaUnavailableError)
+            code = "LLM_UNAVAILABLE" if llm_down else "AGENT_ERROR"
+            user_message = (
+                "I couldn't think through that because my local model isn't "
+                "reachable right now. Check that Ollama is running and the "
+                "configured model is pulled."
+                if llm_down
+                else "I ran into an internal error while handling that request."
+            )
+            error = {"code": code, "message": str(exc)}
             await self._tasks.fail(task.id, str(exc))
             await self._publish(EventType.TASK_FAILED, session_id, task.id, {"error": error})
             await self._notifications.create(
@@ -88,13 +98,13 @@ class Agent:
             assistant_msg = await self._messages.add(
                 session_id,
                 "assistant",
-                "I ran into an internal error while handling that request.",
+                user_message,
             )
             return AgentResult(
                 message_id=assistant_msg.id,
                 task_id=task.id,
                 session_id=session_id,
-                response="I ran into an internal error while handling that request.",
+                response=user_message,
                 tool_calls=[],
                 error=error,
             )
@@ -123,7 +133,7 @@ class Agent:
         self, session_id: str, task_id: str
     ) -> tuple[str, list[dict]]:
         history = await self._messages.history(session_id, limit=planner.HISTORY_LIMIT)
-        messages = planner.build_messages(history)
+        messages = planner.build_messages(history, self._registry)
         tools = planner.select_tools(self._registry)
         tool_records: list[dict] = []
 

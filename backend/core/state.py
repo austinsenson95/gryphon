@@ -13,6 +13,7 @@ from backend.memory.database import Database
 from backend.events.bus import EventBus
 from backend.events.websocket_manager import WebSocketManager
 from backend.llm.base import LLMProvider
+from backend.stt.base import SpeechToTextProvider
 from backend.tools.registry import ToolRegistry
 
 
@@ -24,6 +25,7 @@ class AppState:
     provider: LLMProvider
     bus: EventBus
     ws_manager: WebSocketManager
+    stt: SpeechToTextProvider
 
     @property
     def llm_mode(self) -> str:

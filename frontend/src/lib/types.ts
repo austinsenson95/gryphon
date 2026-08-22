@@ -13,6 +13,11 @@ export const EVENT_TYPES = [
   "TASK_COMPLETED",
   "TASK_FAILED",
   "USER_APPROVAL_REQUIRED",
+  "STT_STARTED",
+  "STT_COMPLETED",
+  "STT_FAILED",
+  "WORKFLOW_STARTED",
+  "WORKFLOW_COMPLETED",
 ] as const
 
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -34,6 +39,10 @@ export interface HealthResponse {
   service: string
   version?: string
   llm_mode?: "live" | "mock"
+}
+
+export interface VoiceResponse extends ChatResponse {
+  transcript: string
 }
 
 export interface ChatToolCall {

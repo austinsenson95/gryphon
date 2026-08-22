@@ -17,7 +17,7 @@ from collections.abc import Awaitable, Callable
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.core.logging import get_logger
-from backend.memory import retrieval
+from backend.memory import retrieval as repository
 from backend.events.events import EventEnvelope
 from backend.events.websocket_manager import WebSocketManager
 

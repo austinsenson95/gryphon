@@ -24,7 +24,9 @@ def test_config_defaults():
     assert settings.environment == "development"
     assert settings.host == "0.0.0.0"
     assert settings.port == 8000
-    assert settings.llm_provider == "openai_compatible"
+    assert settings.llm_provider == "ollama"
+    assert settings.ollama_base_url == "http://localhost:11434"
+    assert settings.stt_provider == "local"
     assert settings.database_url.startswith("sqlite")
     assert settings.frontend_origin == "http://localhost:5173"
 
@@ -35,6 +37,7 @@ def test_config_env_override(monkeypatch):
     monkeypatch.setenv("APP_NAME", "GryphonTest")
     monkeypatch.setenv("PORT", "9999")
     monkeypatch.setenv("LLM_API_KEY", "sk-test")
+    monkeypatch.setenv("LLM_PROVIDER", "openai_compatible")
     settings = Settings(_env_file=None)
     assert settings.app_name == "GryphonTest"
     assert settings.port == 9999

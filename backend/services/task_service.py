@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from backend.memory import retrieval
+from backend.memory import retrieval as repository
 from backend.memory.models import Task
 
 

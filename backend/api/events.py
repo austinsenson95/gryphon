@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Request
 
 from backend.core.state import get_state
-from backend.memory import retrieval
+from backend.memory import retrieval as repository
 from backend.events.events import envelope_from_row
 
 router = APIRouter(prefix="/api", tags=["events"])

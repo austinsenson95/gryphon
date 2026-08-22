@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  AudioLines,
   Bot,
   Brain,
   CheckCircle2,
@@ -8,6 +9,7 @@ import {
   Play,
   ShieldAlert,
   Sparkles,
+  Workflow,
   Wrench,
   XCircle,
   type LucideIcon,
@@ -36,6 +38,11 @@ const EVENT_ICONS: Record<EventType, LucideIcon> = {
   TASK_COMPLETED: CheckCircle2,
   TASK_FAILED: AlertTriangle,
   USER_APPROVAL_REQUIRED: ShieldAlert,
+  STT_STARTED: AudioLines,
+  STT_COMPLETED: AudioLines,
+  STT_FAILED: XCircle,
+  WORKFLOW_STARTED: Workflow,
+  WORKFLOW_COMPLETED: CheckCircle2,
 }
 
 function iconTone(type: EventType): string {

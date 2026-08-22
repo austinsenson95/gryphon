@@ -26,13 +26,13 @@ async def test_mock_time_rule_is_case_insensitive(mock_provider):
 
 async def test_mock_open_url_rule(mock_provider):
     response = await mock_provider.generate(_user("please open https://example.com/docs"))
-    assert response.tool_calls[0].name == "browser.open_url"
+    assert response.tool_calls[0].name == "desktop.open_url"
     assert response.tool_calls[0].arguments == {"url": "https://example.com/docs"}
 
 
 async def test_mock_search_rule(mock_provider):
     response = await mock_provider.generate(_user("can you search for local news?"))
-    assert response.tool_calls[0].name == "web.search"
+    assert response.tool_calls[0].name == "desktop.search_web"
     assert response.tool_calls[0].arguments["query"] == "local news"
 
 

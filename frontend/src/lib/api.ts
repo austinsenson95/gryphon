@@ -1,4 +1,9 @@
-import type { ChatResponse, GryphonEvent, HealthResponse } from "@/lib/types"
+import type {
+  ChatResponse,
+  GryphonEvent,
+  HealthResponse,
+  VoiceResponse,
+} from "@/lib/types"
 
 /**
  * LAN-friendly base URL: same host as the page, backend port 8000,
@@ -42,4 +47,31 @@ export function sendChat(
 
 export function getEvents(limit = 50): Promise<GryphonEvent[]> {
   return request<GryphonEvent[]>(`/api/events?limit=${limit}`)
+}
+
+/** Upload recorded audio for local speech-to-text + agent execution. */
+export async function sendVoice(
+  audio: Blob,
+  sessionId?: string | null,
+): Promise<VoiceResponse> {
+  const headers: Record<string, string> = {
+    "Content-Type": audio.type || "audio/webm",
+  }
+  if (sessionId) headers["X-Session-Id"] = sessionId
+  const res = await fetch(`${API_BASE}/api/voice`, {
+    method: "POST",
+    headers,
+    body: audio,
+  })
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try {
+      const body = (await res.json()) as { error?: { message?: string } }
+      if (body?.error?.message) detail = body.error.message
+    } catch {
+      // keep the HTTP status fallback
+    }
+    throw new Error(detail)
+  }
+  return (await res.json()) as VoiceResponse
 }

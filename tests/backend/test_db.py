@@ -1,6 +1,6 @@
 """DB persistence round-trip tests."""
 
-from backend.memory import retrieval
+from backend.memory import retrieval as repository
 
 
 async def test_session_message_task_event_roundtrip(db):
