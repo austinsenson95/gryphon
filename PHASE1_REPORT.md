@@ -105,7 +105,7 @@ Each match returns a confidence score and a human-readable reason.
 
 ```json
 {
-  "url": "https://github.com/search?q=Gryphon&type=repositories",
+  "url": "https://github.com/search?q=Griffin&type=repositories",
   "title": "Repository search results · GitHub",
   "visible_text": "...",
   "text_truncated": false,
@@ -114,9 +114,9 @@ Each match returns a confidence score and a human-readable reason.
       "index": 0,
       "tag": "a",
       "role": "link",
-      "name": "garethdmm/gryphon",
+      "name": "garethdmm/griffin",
       "type": null,
-      "href": "/garethdmm/gryphon",
+      "href": "/garethdmm/griffin",
       "placeholder": null,
       "disabled": false
     }
@@ -137,10 +137,10 @@ source, and falls back to DOM heuristics.
 
 ```json
 {
-  "goal": "Open GitHub, find my Gryphon repository, and open it.",
+  "goal": "Open GitHub, find my Griffin repository, and open it.",
   "current_app": "browser",
   "current_url": "https://github.com/...",
-  "completed": ["Loaded ...", "Observed page (60 interactive elements)", "Clicked link 'garethdmm/gryphon'"],
+  "completed": ["Loaded ...", "Observed page (60 interactive elements)", "Clicked link 'garethdmm/griffin'"],
   "next_step": "verify navigation to ...",
   "failure_history": [],
   "relevant_ui": {}
@@ -208,18 +208,18 @@ interactions.
 
 ### Live GitHub acceptance tests
 
-- **Test 4 — "Open GitHub and search for Gryphon."**
-  - Model reliably emits `browser.open(url="https://github.com/search?q=Gryphon&type=repositories")`.
+- **Test 4 — "Open GitHub and search for Griffin."**
+  - Model reliably emits `browser.open(url="https://github.com/search?q=Griffin&type=repositories")`.
   - Runtime returns `page_state` with title/URL/element count.
   - Late validation runs were blocked by GitHub returning **"Too many requests"**
     (HTTP 429) because repeated acceptance runs hit the unauthenticated search
     rate limit.
 
-- **Test 5 — "Open GitHub, find my Gryphon repository, and open it."**
+- **Test 5 — "Open GitHub, find my Griffin repository, and open it."**
   - In the final architecture run the model emitted **two tool calls in one
     assistant turn**:
-    1. `browser.open(url="https://github.com/search?q=Gryphon&type=repositories")`
-    2. `browser.click(name="garethdmm/gryphon")` (semantic target)
+    1. `browser.open(url="https://github.com/search?q=Griffin&type=repositories")`
+    2. `browser.click(name="garethdmm/griffin")` (semantic target)
   - The click failed only because GitHub's search results page was returning
     **HTTP 429 / "Too many requests"** and therefore did not contain the
     repository link.

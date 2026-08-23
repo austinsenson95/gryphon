@@ -16,13 +16,13 @@ import {
   type AvatarState,
 } from "@/avatar/stateMachine"
 import { getBrowserStatus, getEvents, getHealth, getProviderInfo, setProvider } from "@/lib/api"
-import { createGryphonSocket } from "@/lib/ws"
+import { createGriffinSocket } from "@/lib/ws"
 import type {
   AppNotification,
   BrowserStatus,
   ConnectionStatus,
   CurrentTask,
-  GryphonEvent,
+  GriffinEvent,
   LLMProvider,
   ToolActivityItem,
 } from "@/lib/types"
@@ -30,8 +30,8 @@ import type {
 const EVENT_BUFFER_CAP = 200
 const NOTIFICATION_TTL_MS = 6_000
 
-export interface GryphonState {
-  events: GryphonEvent[]
+export interface GriffinState {
+  events: GriffinEvent[]
   connectionStatus: ConnectionStatus
   healthOk: boolean
   llmMode: "live" | "mock" | null
@@ -49,7 +49,7 @@ export interface GryphonState {
   switchProvider: (provider: LLMProvider) => Promise<void>
 }
 
-const defaultState: GryphonState = {
+const defaultState: GriffinState = {
   events: [],
   connectionStatus: "connecting",
   healthOk: false,
@@ -68,22 +68,22 @@ const defaultState: GryphonState = {
   switchProvider: async () => {},
 }
 
-const GryphonContext = createContext<GryphonState>(defaultState)
+const GriffinContext = createContext<GriffinState>(defaultState)
 
-/** Access the shared Gryphon event/state store. */
-export function useGryphonEvents(): GryphonState {
-  return useContext(GryphonContext)
+/** Access the shared Griffin event/state store. */
+export function useGriffinEvents(): GriffinState {
+  return useContext(GriffinContext)
 }
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined
 }
 
-function toolNameOf(event: GryphonEvent): string {
+function toolNameOf(event: GriffinEvent): string {
   return asString(event.data.tool) ?? asString(event.data.name) ?? "unknown tool"
 }
 
-function toolArgsOf(event: GryphonEvent): Record<string, unknown> | undefined {
+function toolArgsOf(event: GriffinEvent): Record<string, unknown> | undefined {
   const input = event.data.input ?? event.data.arguments
   if (input !== null && typeof input === "object" && !Array.isArray(input)) {
     return input as Record<string, unknown>
@@ -91,8 +91,8 @@ function toolArgsOf(event: GryphonEvent): Record<string, unknown> | undefined {
   return undefined
 }
 
-export function GryphonProvider({ children }: { children: ReactNode }) {
-  const [events, setEvents] = useState<GryphonEvent[]>([])
+export function GriffinProvider({ children }: { children: ReactNode }) {
+  const [events, setEvents] = useState<GriffinEvent[]>([])
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting")
   const [healthOk, setHealthOk] = useState(false)
@@ -125,7 +125,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
     [dismissNotification],
   )
 
-  const applyAvatarEvent = useCallback((event: GryphonEvent) => {
+  const applyAvatarEvent = useCallback((event: GriffinEvent) => {
     const next = nextAvatarState(event)
     if (!next) return
     if (avatarTimer.current) {
@@ -140,7 +140,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const handleEvent = useCallback(
-    (event: GryphonEvent) => {
+    (event: GriffinEvent) => {
       if (seenIds.current.has(event.id)) return
       seenIds.current.add(event.id)
 
@@ -189,7 +189,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
             id: `notif_${event.id}`,
             level: "error",
             title: "Task failed",
-            body: asString(event.data.error) ?? "Gryphon could not finish the task.",
+            body: asString(event.data.error) ?? "Griffin could not finish the task.",
           })
           break
         }
@@ -201,7 +201,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
             title: "Approval required",
             body:
               asString(event.data.message) ??
-              `Gryphon wants to run ${toolNameOf(event)}.`,
+              `Griffin wants to run ${toolNameOf(event)}.`,
           })
           break
         }
@@ -333,7 +333,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // backend not up yet — WS reconnect loop keeps trying
       })
-    const socket = createGryphonSocket({
+    const socket = createGriffinSocket({
       onEvent: handleEvent,
       onStatus: setConnectionStatus,
     })
@@ -351,7 +351,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const value = useMemo<GryphonState>(
+  const value = useMemo<GriffinState>(
     () => ({
       events,
       connectionStatus,
@@ -390,6 +390,6 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <GryphonContext.Provider value={value}>{children}</GryphonContext.Provider>
+    <GriffinContext.Provider value={value}>{children}</GriffinContext.Provider>
   )
 }

@@ -7,7 +7,7 @@ import {
   GlassCardHeader,
   GlassCardTitle,
 } from "@/components/ui/glass-card"
-import { useGryphonEvents } from "@/lib/useGryphonEvents"
+import { useGriffinEvents } from "@/lib/useGriffinEvents"
 
 function formatArgs(args?: Record<string, unknown>): string | null {
   if (!args || Object.keys(args).length === 0) return null
@@ -16,14 +16,14 @@ function formatArgs(args?: Record<string, unknown>): string | null {
 }
 
 export function ToolActivityCard({ className }: { className?: string }) {
-  const { toolActivity } = useGryphonEvents()
+  const { toolActivity } = useGriffinEvents()
 
   return (
     <GlassCard className={className}>
       <GlassCardHeader>
         <GlassCardTitle>Tool Activity</GlassCardTitle>
         <GlassCardDescription className="text-muted-foreground">
-          Recent actions performed by Gryphon.
+          Recent actions performed by Griffin.
         </GlassCardDescription>
       </GlassCardHeader>
       <GlassCardContent>
@@ -34,7 +34,7 @@ export function ToolActivityCard({ className }: { className?: string }) {
               No tool activity yet
             </p>
             <p className="max-w-[32ch] text-xs leading-relaxed text-white/50">
-              Gryphon's browser, filesystem, and external tools will appear
+              Griffin's browser, filesystem, and external tools will appear
               here.
             </p>
           </div>

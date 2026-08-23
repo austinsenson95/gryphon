@@ -38,7 +38,7 @@ async def test_agent_normal_conversation_no_tool(db, bus, registry, settings):
 
     assert result.error is None
     assert result.tool_calls == []
-    assert "Gryphon" in result.response
+    assert "Griffin" in result.response
     assert result.message_id and result.task_id
 
     types = [e.type for e in events]

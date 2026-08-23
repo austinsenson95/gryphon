@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Gryphon Phase 0 — one-time setup
+# Griffin Phase 0 — one-time setup
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "== Gryphon setup =="
+echo "== Griffin setup =="
 
 # Use a PyO3/pydantic-core compatible Python (3.11–3.13). The system default
 # may be 3.14+, which cannot build pydantic-core wheels at this time.

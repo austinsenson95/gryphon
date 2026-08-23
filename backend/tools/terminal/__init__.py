@@ -62,7 +62,7 @@ def register(registry, settings: Settings) -> None:
     registry.register(
         Tool(
             name="system.get_info",
-            description="Get information about the Gryphon host system and runtime.",
+            description="Get information about the Griffin host system and runtime.",
             input_schema={"type": "object", "properties": {}, "required": []},
             permission="safe",
             handler=get_info,

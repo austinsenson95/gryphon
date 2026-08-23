@@ -1,4 +1,4 @@
-"""Gryphon backend application factory.
+"""Griffin backend application factory.
 
 Wires CORS, routers, structured error envelopes, and the lifespan that builds
 the database, tool registry, LLM provider, WebSocket manager and event bus.
@@ -30,7 +30,7 @@ from backend.stt.local import get_stt_provider
 from backend.tools.registry import create_default_registry
 from backend.remote.service import RemoteControlService
 
-logger = get_logger("gryphon.main")
+logger = get_logger("griffin.main")
 
 # CORS: explicit dev origins plus LAN origin patterns (dev convenience).
 LAN_ORIGIN_REGEX = (
@@ -67,7 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         provider = get_llm_provider(settings)
         stt = get_stt_provider(settings)
 
-        app.state.gryphon = AppState(
+        app.state.griffin = AppState(
             settings=settings,
             db=db,
             registry=registry,

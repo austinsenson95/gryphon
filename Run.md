@@ -1,6 +1,6 @@
-# Gryphon — Setup & Run Guide
+# Griffin — Setup & Run Guide
 
-This document explains how to get the Gryphon backend and frontend running on your machine.
+This document explains how to get the Griffin backend and frontend running on your machine.
 
 ## Requirements
 
@@ -12,7 +12,7 @@ This document explains how to get the Gryphon backend and frontend running on yo
 
 ## Quick Start
 
-From the project root (`gryphon/`):
+From the project root (`griffin/`):
 
 ```bash
 # 1. One-time setup (creates .venv, installs Python + Node deps, copies env file)
@@ -53,7 +53,7 @@ pip install -r backend/requirements.txt
 cp config/.env.example config/.env
 ```
 
-Edit `config/.env` if you want to configure a live LLM, search API, or STT provider. The defaults run Gryphon in mock mode, which works without credentials.
+Edit `config/.env` if you want to configure a live LLM, search API, or STT provider. The defaults run Griffin in mock mode, which works without credentials.
 
 ### 4. Install frontend dependencies
 

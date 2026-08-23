@@ -495,3 +495,45 @@
     box-shadow: 0 0 30px rgba(245, 158, 11, 0.55);
   }
 }
+
+/* Griffin's voice-first canvas is a web implementation of the supplied iOS
+   reference: a single light surface, minimal chrome, and state-led motion. */
+:root { --griffin-bg: #dfe5e7; --griffin-text: #121214; --griffin-muted: #8e8e93; --griffin-teal: #4dbeb6; --griffin-violet: #8265db; }
+body { color: var(--griffin-text); color-scheme: light; background: var(--griffin-bg); background-image: none; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+body::before { display: none; }
+.griffin-app { position: relative; z-index: 1; display: flex; min-height: 100dvh; flex-direction: column; background: var(--griffin-bg); }
+.griffin-header { display: flex; height: 7.4rem; flex: 0 0 auto; align-items: center; justify-content: space-between; padding: 0 1.6rem; }
+.griffin-header__right { display: flex; align-items: center; gap: .7rem; }
+.griffin-icon-button, .griffin-view-switch { display: grid; height: 2.7rem; width: 2.7rem; place-items: center; border: 1px solid rgba(18,18,20,.06); border-radius: 999px; color: #36363a; background: #e5e5ea; }
+.griffin-icon-button { cursor: pointer; }
+.griffin-view-switch { display: flex; width: auto; padding: .2rem; }
+.griffin-view-switch button { display: grid; height: 2.1rem; width: 2.1rem; place-items: center; border-radius: 999px; color: #67676e; }
+.griffin-view-switch button.is-active { color: #121214; background: #fff; box-shadow: 0 2px 5px rgba(18,18,20,.12); }
+.griffin-conversation { position: relative; display: flex; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; border-top: 1px solid rgba(18,18,20,.06); }
+.griffin-activity-line { position: absolute; top: -1px; right: 0; left: 0; height: 2px; opacity: 0; transition: opacity .25s ease; background: linear-gradient(90deg, var(--griffin-teal), #9aaed1, var(--griffin-violet)); }
+.griffin-activity-line span { position: absolute; top: -2px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: #9ad9df; box-shadow: 0 0 0 2px var(--griffin-bg); }
+.griffin-activity-line.is-visible { opacity: 1; }
+.griffin-message-canvas { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; overflow-y: auto; padding: 2rem 1.5rem 8rem; text-align: center; scroll-behavior: smooth; }
+.griffin-greeting, .griffin-message { max-width: 42rem; font-size: 1.1rem; line-height: 1.45; }
+.griffin-greeting { color: var(--griffin-text); }
+.griffin-message { animation: griffin-message-in .35s ease both; }
+.griffin-message--assistant { color: var(--griffin-text); }
+.griffin-message--user { color: var(--griffin-muted); font-size: .85rem; line-height: 1.25; }
+.griffin-thinking { width: 4.1rem; height: 4.1rem; border: 8px solid transparent; border-radius: 50%; background: linear-gradient(var(--griffin-bg), var(--griffin-bg)) padding-box, conic-gradient(from 15deg, var(--griffin-teal), var(--griffin-violet), transparent 85deg) border-box; animation: griffin-spin 3.8s linear infinite, griffin-enter .45s ease both; }
+.griffin-input-zone { position: absolute; right: 0; bottom: 1.7rem; left: 0; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.griffin-mic { display: grid; height: 5.6rem; width: 5.6rem; place-items: center; border: 0; border-radius: 50%; color: #66676c; background: #fff; box-shadow: 0 6px 18px rgba(18,18,20,.14); cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
+.griffin-mic:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(18,18,20,.16); }
+.griffin-mic:active { transform: scale(.97); }
+.griffin-mic svg { height: 1.7rem; width: 1.7rem; stroke-width: 1.55; }
+.griffin-mic.is-listening { color: #c93629; }
+.griffin-speed-dial { position: absolute; bottom: 6.1rem; display: grid; grid-template-columns: repeat(3, 5.4rem); align-items: end; gap: 1.4rem; }
+.griffin-fab { display: flex; flex-direction: column; align-items: center; gap: .45rem; color: #121214; font-size: .72rem; animation: griffin-fab-in .25s ease both; }
+.griffin-fab svg { display: grid; height: 3.4rem; width: 3.4rem; place-items: center; padding: .85rem; border-radius: 50%; stroke-width: 1.5; }
+.griffin-fab--attach svg { background: #d1f2eb; }.griffin-fab--text { transform: translateY(-2.9rem); animation-delay: .05s; }.griffin-fab--text svg { background: #e6e6fa; }.griffin-fab--files { animation-delay: .1s; }.griffin-fab--files svg { background: #fadbd8; }
+.griffin-text-entry { display: flex; width: min(36rem, calc(100vw - 2.5rem)); align-items: center; gap: .45rem; border: 1px solid rgba(18,18,20,.09); border-radius: 999px; padding: .35rem .4rem .35rem 1rem; background: #fff; box-shadow: 0 6px 18px rgba(18,18,20,.1); }
+.griffin-text-entry--hidden { position: absolute; opacity: 0; pointer-events: none; }
+.griffin-text-entry input { border: 0; background: transparent; color: var(--griffin-text); box-shadow: none; }.griffin-text-entry input:focus-visible { outline: 0; box-shadow: none; }
+.griffin-text-entry button { display: grid; height: 2.35rem; width: 2.35rem; place-items: center; border-radius: 50%; color: #fff; background: #5368d8; }.griffin-text-entry button:disabled { opacity: .45; }.griffin-text-entry svg { height: 1rem; width: 1rem; }
+@keyframes griffin-spin { to { transform: rotate(-360deg); } } @keyframes griffin-enter { from { opacity: 0; transform: scale(.75); } to { opacity: 1; transform: scale(1); } } @keyframes griffin-message-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } } @keyframes griffin-fab-in { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .griffin-thinking, .griffin-message, .griffin-fab { animation: none; } .griffin-mic { transition: none; } }
+@media (max-width: 640px) { .griffin-header { height: 6.4rem; padding-inline: 1.25rem; }.griffin-message-canvas { padding-bottom: 8.2rem; }.griffin-speed-dial { gap: .25rem; grid-template-columns: repeat(3, 4.8rem); } }

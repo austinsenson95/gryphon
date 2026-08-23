@@ -31,7 +31,7 @@ export const EVENT_TYPES = [
 export type EventType = (typeof EVENT_TYPES)[number]
 
 /** Exact event envelope emitted by the backend event bus (SPEC §2). */
-export interface GryphonEvent {
+export interface GriffinEvent {
   id: string
   type: EventType
   timestamp: string

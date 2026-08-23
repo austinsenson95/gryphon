@@ -58,7 +58,7 @@ vi.stubGlobal(
     if (url.includes("/api/health")) {
       return jsonResponse({
         status: "ok",
-        service: "gryphon",
+        service: "griffin",
         version: "0.1.0",
         llm_mode: "mock",
       })

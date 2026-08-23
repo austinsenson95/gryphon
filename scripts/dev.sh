@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gryphon Phase 0 — dev launcher: backend + frontend, LAN-accessible
+# Griffin Phase 0 — dev launcher: backend + frontend, LAN-accessible
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -9,16 +9,16 @@ source .venv/bin/activate
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
 
-echo "Starting Gryphon backend on ${HOST}:${PORT} ..."
+echo "Starting Griffin backend on ${HOST}:${PORT} ..."
 uvicorn backend.main:app --host "$HOST" --port "$PORT" --reload &
 BACKEND_PID=$!
 
-echo "Starting Gryphon frontend on 0.0.0.0:5173 ..."
+echo "Starting Griffin frontend on 0.0.0.0:5173 ..."
 (cd frontend && npm run dev -- --host 0.0.0.0 --port 5173) &
 FRONTEND_PID=$!
 
 cleanup() {
-  echo "Shutting down Gryphon..."
+  echo "Shutting down Griffin..."
   kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true
 }
 trap cleanup INT TERM EXIT

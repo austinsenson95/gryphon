@@ -14,7 +14,7 @@ router = APIRouter(tags=["websocket"])
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
-    manager = websocket.app.state.gryphon.ws_manager
+    manager = websocket.app.state.griffin.ws_manager
     await manager.connect(websocket)
     try:
         while True:

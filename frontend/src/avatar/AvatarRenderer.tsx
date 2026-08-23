@@ -9,9 +9,9 @@ import {
 import { cn } from "@/lib/utils"
 import type { AvatarState } from "@/avatar/stateMachine"
 
-export const AVATAR_POSITION_KEY = "gryphon.avatar.pos"
+export const AVATAR_POSITION_KEY = "griffin.avatar.pos"
 /** Window event dispatched on avatar click so the chat panel can focus. */
-export const AVATAR_ACTIVATE_EVENT = "gryphon:avatar-activate"
+export const AVATAR_ACTIVATE_EVENT = "griffin:avatar-activate"
 
 const DRAG_THRESHOLD_PX = 5
 const VIEWPORT_MARGIN_PX = 12
@@ -64,7 +64,7 @@ export interface AvatarRendererProps {
 /**
  * Presentational avatar. Receives ONLY its visual state — it knows nothing
  * about chat, tasks or activity (SPEC §3 isolation rule). Click dispatches
- * the `gryphon:avatar-activate` window event; the dashboard decides what to
+ * the `griffin:avatar-activate` window event; the dashboard decides what to
  * focus. Double-click recenters the avatar.
  */
 export function AvatarRenderer({ state, size = 96 }: AvatarRendererProps) {
@@ -143,7 +143,7 @@ export function AvatarRenderer({ state, size = 96 }: AvatarRendererProps) {
   return (
     <div
       role="button"
-      aria-label={`Gryphon avatar (${state.toLowerCase()})`}
+      aria-label={`Griffin avatar (${state.toLowerCase()})`}
       title="Drag to move · click to chat · double-click to recenter"
       className={cn("avatar fixed z-40", stateClass)}
       style={{ left: position.x, top: position.y, width: size, height: size }}
@@ -168,8 +168,8 @@ export function AvatarRenderer({ state, size = 96 }: AvatarRendererProps) {
         </div>
       ) : (
         <img
-          src="/avatar/idle/gryphon.png"
-          alt="Gryphon"
+          src="/avatar/idle/griffin.png"
+          alt="Griffin"
           draggable={false}
           className="h-full w-full rounded-full object-cover"
           onError={() => setImageFailed(true)}

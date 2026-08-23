@@ -26,7 +26,7 @@ import {
   GlassCardHeader,
   GlassCardTitle,
 } from "@/components/ui/glass-card"
-import { useGryphonEvents } from "@/lib/useGryphonEvents"
+import { useGriffinEvents } from "@/lib/useGriffinEvents"
 import type { EventType } from "@/lib/types"
 
 const EVENT_ICONS: Record<EventType, LucideIcon> = {
@@ -88,20 +88,20 @@ function formatTime(timestamp: string): string {
 }
 
 export function ActivityTimeline() {
-  const { events } = useGryphonEvents()
+  const { events } = useGriffinEvents()
 
   return (
     <GlassCard className="min-h-0">
       <GlassCardHeader>
         <GlassCardTitle>Activity Timeline</GlassCardTitle>
         <GlassCardDescription className="text-muted-foreground">
-          Live event feed from the Gryphon event bus.
+          Live event feed from the Griffin event bus.
         </GlassCardDescription>
       </GlassCardHeader>
       <GlassCardContent>
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No events yet. Send Gryphon a message to get started.
+            No events yet. Send Griffin a message to get started.
           </p>
         ) : (
           <ul

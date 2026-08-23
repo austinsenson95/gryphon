@@ -15,7 +15,7 @@ from fastapi import WebSocket
 from backend.core.logging import get_logger
 from backend.events.events import EventEnvelope, utc_iso_now
 
-logger = get_logger("gryphon.ws")
+logger = get_logger("griffin.ws")
 
 REPLAY_LIMIT = 20
 
@@ -62,7 +62,7 @@ class WebSocketManager:
         await websocket.send_json(
             {
                 "type": "CONNECTED",
-                "message": "Connected to Gryphon event stream",
+                "message": "Connected to Griffin event stream",
                 "timestamp": utc_iso_now(),
             }
         )

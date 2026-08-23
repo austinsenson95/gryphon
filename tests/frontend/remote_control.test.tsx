@@ -32,7 +32,7 @@ const pairedStatus: RemoteStatus = {
 describe("Phone remote controls", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    sessionStorage.setItem("gryphon.remote.token", "paired-token")
+    sessionStorage.setItem("griffin.remote.token", "paired-token")
     vi.mocked(getRemoteStatus).mockResolvedValue(pairedStatus)
     vi.mocked(sendRemoteInput).mockResolvedValue({ accepted: true })
     vi.mocked(launchRemoteApplication).mockResolvedValue({

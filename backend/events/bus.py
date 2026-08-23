@@ -21,7 +21,7 @@ from backend.memory import retrieval as repository
 from backend.events.events import EventEnvelope
 from backend.events.websocket_manager import WebSocketManager
 
-logger = get_logger("gryphon.events")
+logger = get_logger("griffin.events")
 
 Subscriber = Callable[[EventEnvelope], Awaitable[None] | None]
 

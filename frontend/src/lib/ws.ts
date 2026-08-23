@@ -1,7 +1,7 @@
 import {
   EVENT_TYPES,
   type ConnectionStatus,
-  type GryphonEvent,
+  type GriffinEvent,
 } from "@/lib/types"
 import { API_BASE } from "@/lib/api"
 
@@ -23,7 +23,7 @@ export function getWebSocketUrl(): string {
  * defined by SPEC §2. Returns null for non-envelope frames
  * (e.g. the {"type":"CONNECTED"} hello) and malformed payloads.
  */
-export function parseEvent(raw: unknown): GryphonEvent | null {
+export function parseEvent(raw: unknown): GriffinEvent | null {
   if (typeof raw === "string") {
     try {
       raw = JSON.parse(raw)
@@ -43,7 +43,7 @@ export function parseEvent(raw: unknown): GryphonEvent | null {
   if (!(EVENT_TYPES as readonly string[]).includes(evt.type)) return null
   return {
     id: evt.id,
-    type: evt.type as GryphonEvent["type"],
+    type: evt.type as GriffinEvent["type"],
     timestamp: evt.timestamp,
     session_id: typeof evt.session_id === "string" ? evt.session_id : null,
     task_id: typeof evt.task_id === "string" ? evt.task_id : null,
@@ -55,12 +55,12 @@ export function parseEvent(raw: unknown): GryphonEvent | null {
   }
 }
 
-export interface GryphonSocketHandlers {
-  onEvent?: (event: GryphonEvent) => void
+export interface GriffinSocketHandlers {
+  onEvent?: (event: GriffinEvent) => void
   onStatus?: (status: ConnectionStatus) => void
 }
 
-export interface GryphonSocket {
+export interface GriffinSocket {
   close: () => void
 }
 
@@ -69,10 +69,10 @@ export interface GryphonSocket {
  * The backend sends a {"type":"CONNECTED"} hello plus a replay of recent
  * events on connect; every replayed frame is parsed as an event envelope.
  */
-export function createGryphonSocket(
-  handlers: GryphonSocketHandlers,
+export function createGriffinSocket(
+  handlers: GriffinSocketHandlers,
   url: string = getWebSocketUrl(),
-): GryphonSocket {
+): GriffinSocket {
   let ws: WebSocket | null = null
   let backoff = MIN_BACKOFF_MS
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null

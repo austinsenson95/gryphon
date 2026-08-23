@@ -19,7 +19,7 @@ from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.tools.schemas import Tool, ToolResult
 
-logger = get_logger("gryphon.tools.desktop")
+logger = get_logger("griffin.tools.desktop")
 
 _SUBPROCESS_TIMEOUT = 15.0
 

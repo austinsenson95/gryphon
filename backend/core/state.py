@@ -46,4 +46,4 @@ class AppState:
 
 
 def get_state(request: Request) -> AppState:
-    return request.app.state.gryphon
+    return request.app.state.griffin

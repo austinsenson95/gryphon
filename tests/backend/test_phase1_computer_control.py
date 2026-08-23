@@ -168,7 +168,7 @@ async def test_all_events_share_the_same_run_id(db, bus, registry, settings):
 
 async def test_chat_response_carries_run_id(client, app):
     events = []
-    app.state.gryphon.bus.subscribe(events.append)
+    app.state.griffin.bus.subscribe(events.append)
     response = await client.post("/api/chat", json={"message": "What time is it?"})
     assert response.status_code == 200
     body = response.json()
@@ -264,9 +264,9 @@ async def test_voice_run_id_and_events(client, app, monkeypatch):
     from tests.backend.test_voice_health import FakeSTT
     from backend.tools import desktop
 
-    app.state.gryphon.stt = FakeSTT("Open GitHub")
+    app.state.griffin.stt = FakeSTT("Open GitHub")
     events = []
-    app.state.gryphon.bus.subscribe(events.append)
+    app.state.griffin.bus.subscribe(events.append)
 
     async def _fake(args):
         return True, ""

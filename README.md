@@ -1,6 +1,6 @@
-# Gryphon — Phase 1
+# Griffin — Phase 1
 
-A **local-first personal AI assistant**. Your Mac (or any machine) is the server; the web dashboard is Gryphon's world — a draggable avatar, live activity feed, chat with **voice input**, task state, and tool activity, all streaming over WebSocket.
+A **local-first personal AI assistant**. Your Mac (or any machine) is the server; the web dashboard is Griffin's world — a draggable avatar, live activity feed, chat with **voice input**, task state, and tool activity, all streaming over WebSocket.
 
 Phase 1 connects the dashboard to a real agentic execution loop:
 
@@ -13,14 +13,14 @@ TEXT / VOICE → LOCAL STT → AGENT RUNTIME → LOCAL LLM (Ollama)
 
 The LLM only *proposes* structured tool calls. Python validates every call against the registered command catalog (allowlisted apps, allowlisted directories, validated URLs) and executes through safe native mechanisms (`asyncio.create_subprocess_exec` with argv lists — no shell, no `eval`, ever). Unknown commands, unknown workflows, invalid URLs, disallowed paths and privileged tools all **fail closed** with structured errors.
 
-![Gryphon dashboard](docs/dashboard.png)
+![Griffin dashboard](docs/dashboard.png)
 
 Phase 0 is the minimum viable skeleton, built as a **modular monolith**: one FastAPI backend, one React frontend, SQLite persistence. Everything is designed so future capabilities (browser automation, messaging, memory, voice, multi-agent) plug in without rewriting the core.
 
 ## 1. Architecture
 
 ```text
-USER → WEB APP → GRYPHON API → AGENT/LLM → TOOL REGISTRY → TOOL EXECUTION
+USER → WEB APP → GRIFFIN API → AGENT/LLM → TOOL REGISTRY → TOOL EXECUTION
                                       ↓
                                  EVENT BUS  ──→ SQLite (persisted)
                                       ↓
@@ -49,7 +49,7 @@ All configuration lives in `backend/.env` (never committed; `backend/.env.exampl
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `APP_NAME` / `ENVIRONMENT` | `Gryphon` / `development` | service identity |
+| `APP_NAME` / `ENVIRONMENT` | `Griffin` / `development` | service identity |
 | `HOST` / `PORT` | `0.0.0.0` / `8000` | bind address (LAN-accessible) |
 | `LLM_PROVIDER` | `ollama` | `ollama` (local, default) or `openai_compatible` |
 | `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_TIMEOUT` | `http://localhost:11434` / empty / `60` | local model runtime |
@@ -61,14 +61,14 @@ All configuration lives in `backend/.env` (never committed; `backend/.env.exampl
 | `DEFAULT_BROWSER` | empty | e.g. `Safari`; empty = system default browser |
 | `ALLOWED_APPLICATIONS` | common mac apps | comma-separated app allowlist for `desktop.open_application` |
 | `ALLOWED_DIRECTORIES` | `~/Projects,~/Documents,~/Desktop,~/Downloads` | path allowlist for folder/terminal tools |
-| `PROJECTS` | empty | JSON object: `{"gryphon": "~/Projects/gryphon"}` |
+| `PROJECTS` | empty | JSON object: `{"griffin": "~/Projects/griffin"}` |
 | `SEARCH_ENGINE_URL` | Google | `{query}` placeholder; used by `desktop.search_web` |
 | `NEWS_SITES` / `RESEARCH_TOPIC` | HN / AI frameworks | morning + research workflow content |
-| `DATABASE_URL` | `sqlite:///./gryphon.db` | persistence |
-| `GRYPHON_DEV_TOKEN` | empty | reserved dev token |
+| `DATABASE_URL` | `sqlite:///./griffin.db` | persistence |
+| `GRIFFIN_DEV_TOKEN` | empty | reserved dev token |
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | CORS |
 
-**No keys needed to run.** Without an LLM configured, Gryphon boots in deterministic mock-LLM mode: tools still really execute through the registry, and all demos below work.
+**No keys needed to run.** Without an LLM configured, Griffin boots in deterministic mock-LLM mode: tools still really execute through the registry, and all demos below work.
 
 ## 3a. Ollama setup (local LLM)
 
@@ -101,7 +101,7 @@ cd backend && . .venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload     # or: make backend
 ```
 
-Check: `curl http://localhost:8000/api/health` → `{"status":"ok","service":"gryphon","version":"0.1.0","llm_mode":"mock"}`
+Check: `curl http://localhost:8000/api/health` → `{"status":"ok","service":"griffin","version":"0.1.0","llm_mode":"mock"}`
 
 ## 5. Running the frontend
 
@@ -121,7 +121,7 @@ Starts both servers (LAN-accessible), prints your LAN URL, and shuts both down c
 
 ## 7. LAN access from your phone
 
-1. Run Gryphon via `./scripts/dev.sh` (backend binds `0.0.0.0`, Vite runs with `--host`).
+1. Run Griffin via `./scripts/dev.sh` (backend binds `0.0.0.0`, Vite runs with `--host`).
 2. Find your Mac's LAN IP: `ipconfig getifaddr en0` (e.g. `192.168.1.42`).
 3. On your phone (same Wi-Fi): open `http://192.168.1.42:5173`.
 
@@ -180,7 +180,7 @@ Workflows are pre-registered in `backend/tools/workflows.py`; the LLM can only s
 ### Example phrases
 
 "Open Safari" · "Open GitHub" · "Open VS Code" · "Open Terminal" ·
-"Search the web for NXP S32K312 documentation" · "Open my gryphon project" ·
+"Search the web for NXP S32K312 documentation" · "Open my griffin project" ·
 "Open my Projects folder" · "Start my development environment"
 
 ## 11. Testing
@@ -201,7 +201,7 @@ All OS-level operations are mocked in tests — no real apps or browser windows 
 - **"Backend offline" badge** — backend not running or wrong port; the frontend targets `<page-hostname>:8000` unless `VITE_API_BASE` is set (`VITE_API_BASE=http://localhost:8000 npm run dev`).
 - **Chat replies but no live events** — WebSocket blocked; check the connection dot, then `python scripts/ws_smoke.py`.
 - **`browser.open_url` returns `"mock": true`** — install the browser once: `cd backend && . .venv/bin/activate && playwright install chromium`.
-- **DB issues** — delete `backend/gryphon.db`; tables recreate on startup.
+- **DB issues** — delete `backend/griffin.db`; tables recreate on startup.
 - **CORS errors from LAN** — set `FRONTEND_ORIGIN` / use `VITE_API_BASE`; CORS already allows LAN origins in development.
 - **Chat says the local model isn't reachable** — `curl http://localhost:8000/api/health/ollama`; start `ollama serve` and `ollama pull $OLLAMA_MODEL`.
 - **Mic button errors with STT_UNAVAILABLE** — install a local engine (`pip install faster-whisper` in `backend/.venv`) or configure whisper.cpp; see §3b.

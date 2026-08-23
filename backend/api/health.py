@@ -16,7 +16,7 @@ async def health(request: Request) -> dict:
     state = get_state(request)
     return {
         "status": "ok",
-        "service": "gryphon",
+        "service": "griffin",
         "version": APP_VERSION,
         "llm_mode": state.llm_mode,
     }
@@ -48,7 +48,7 @@ async def health_stt(request: Request) -> dict:
 
 @router.get("/health/tools")
 async def health_tools(request: Request) -> dict:
-    """Command registry inventory — what Gryphon is currently able to execute."""
+    """Command registry inventory — what Griffin is currently able to execute."""
     state = get_state(request)
     tools = [
         {

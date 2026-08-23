@@ -38,11 +38,11 @@ async def test_mock_search_rule(mock_provider):
     assert response.tool_calls[0].arguments["query"] == "local news"
 
 
-async def test_mock_conversational_fallback_mentions_gryphon(mock_provider):
+async def test_mock_conversational_fallback_mentions_griffin(mock_provider):
     response = await mock_provider.generate(_user("hello there"))
     assert response.tool_calls == []
     assert response.content
-    assert "Gryphon" in response.content
+    assert "Griffin" in response.content
     assert "local-first" in response.content
     assert "mock" in response.content.lower()
 

@@ -15,7 +15,7 @@ describe("ChatPanel", () => {
         message_id: "m1",
         task_id: "t1",
         session_id: "s1",
-        response: "Hello from Gryphon!",
+        response: "Hello from Griffin!",
         tool_calls: [],
       }),
     )
@@ -37,7 +37,7 @@ describe("ChatPanel", () => {
 
     // optimistic user bubble + assistant reply
     expect(screen.getByText("What time is it?")).toBeInTheDocument()
-    expect(await screen.findByText("Hello from Gryphon!")).toBeInTheDocument()
+    expect(await screen.findByText("Hello from Griffin!")).toBeInTheDocument()
   })
 
   it("sends via the button and surfaces request errors", async () => {

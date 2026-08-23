@@ -7,7 +7,7 @@ import {
   GlassCardHeader,
   GlassCardTitle,
 } from "@/components/ui/glass-card"
-import { useGryphonEvents } from "@/lib/useGryphonEvents"
+import { useGriffinEvents } from "@/lib/useGriffinEvents"
 import { cn } from "@/lib/utils"
 
 const STATUS_STYLES: Record<string, string> = {
@@ -18,14 +18,14 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export function CurrentTaskCard() {
-  const { currentTask, browserStatus } = useGryphonEvents()
+  const { currentTask, browserStatus } = useGriffinEvents()
 
   return (
     <GlassCard>
       <GlassCardHeader>
         <GlassCardTitle>Current Task</GlassCardTitle>
         <GlassCardDescription className="text-muted-foreground">
-          What Gryphon is currently doing.
+          What Griffin is currently doing.
         </GlassCardDescription>
       </GlassCardHeader>
       <GlassCardContent>
@@ -47,7 +47,7 @@ export function CurrentTaskCard() {
         )}
         {!currentTask ? (
           <p className="text-sm text-white/65">
-            No active task. Gryphon is standing by.
+            No active task. Griffin is standing by.
           </p>
         ) : (
           <div className="flex flex-col gap-4">

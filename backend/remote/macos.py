@@ -152,7 +152,7 @@ class MacRemoteAdapter:
         capture = shutil.which("screencapture")
         if not capture:
             raise RuntimeError("macOS screen capture is unavailable.")
-        with tempfile.TemporaryDirectory(prefix="gryphon-remote-") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="griffin-remote-") as temp_dir:
             destination = Path(temp_dir) / "frame.jpg"
             proc = await asyncio.create_subprocess_exec(
                 capture, "-x", "-C", "-t", "jpg", str(destination),
@@ -201,7 +201,7 @@ class MacRemoteAdapter:
         if not self.permissions()["accessibility"]:
             raise RuntimeError(
                 "Remote control needs Accessibility permission. Enable it for the app "
-                "running Gryphon in System Settings → Privacy & Security → Accessibility."
+                "running Griffin in System Settings → Privacy & Security → Accessibility."
             )
         if kind in {"move", "tap", "double_tap", "secondary_tap"}:
             point = self._point(float(action["x"]), float(action["y"]))

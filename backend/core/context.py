@@ -11,7 +11,7 @@ from __future__ import annotations
 import contextvars
 
 _current_run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "gryphon_run_id", default=None
+    "griffin_run_id", default=None
 )
 
 

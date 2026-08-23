@@ -1,13 +1,13 @@
-# Gryphon — Agent Guide
+# Griffin — Agent Guide
 
-Gryphon is a **local-first personal AI assistant** (Phase 0). The backend runs on your machine and serves a React dashboard with a draggable avatar, live activity feed, chat, task state, and tool activity. All state changes stream to the browser over a single WebSocket.
+Griffin is a **local-first personal AI assistant** (Phase 0). The backend runs on your machine and serves a React dashboard with a draggable avatar, live activity feed, chat, task state, and tool activity. All state changes stream to the browser over a single WebSocket.
 
 This document reflects the actual file tree and code as it exists today.
 
 ## Project Overview
 
 ```text
-USER → WEB APP → GRYPHON API → AGENT/LLM → TOOL REGISTRY → TOOL EXECUTION
+USER → WEB APP → GRIFFIN API → AGENT/LLM → TOOL REGISTRY → TOOL EXECUTION
                                       ↓
                                  EVENT BUS  ──→ SQLite (persisted)
                                       ↓
@@ -53,7 +53,7 @@ The agent runtime never hard-codes an LLM provider or tool set; both come from a
 ## Directory Layout
 
 ```text
-gryphon/
+griffin/
 ├── backend/                 # FastAPI Python backend
 │   ├── api/                 # REST + WebSocket routers
 │   ├── core/                # Config, logging, agent runtime, planner, permissions, state
@@ -72,7 +72,7 @@ gryphon/
 │   │   ├── avatar/          # Avatar renderer + 7-state state machine
 │   │   ├── components/ui/   # GlassCard, Button, Input, Label, GhibliRobotHero
 │   │   ├── dashboard/       # Chat panel
-│   │   ├── lib/             # API client, WS client, types, utils, GryphonProvider
+│   │   ├── lib/             # API client, WS client, types, utils, GriffinProvider
 │   │   ├── notifications/   # Toast stack
 │   │   └── tasks/           # Current task + tool activity cards
 │   ├── tests live in ../../tests/frontend (configured in vite.config.ts)
@@ -97,7 +97,7 @@ Environment variables are read from `config/.env` (path hard-coded in `backend/c
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `APP_NAME` | `Gryphon` | service identity |
+| `APP_NAME` | `Griffin` | service identity |
 | `ENVIRONMENT` | `development` | runtime environment |
 | `HOST` / `PORT` | `0.0.0.0` / `8000` | backend bind address |
 | `LLM_PROVIDER` | `openai_compatible` | provider selector |
@@ -106,11 +106,11 @@ Environment variables are read from `config/.env` (path hard-coded in `backend/c
 | `LLM_MODEL` | empty | model name; fallback `gpt-4o-mini` in live mode |
 | `SEARCH_API_KEY` / `SEARCH_API_URL` | empty | real web search (mock fallback otherwise) |
 | `BROWSER_HEADLESS` | `false` | Playwright headless mode |
-| `DATABASE_URL` | `sqlite:///./gryphon.db` | SQLite path |
-| `GRYPHON_DEV_TOKEN` | empty | reserved dev token |
+| `DATABASE_URL` | `sqlite:///./griffin.db` | SQLite path |
+| `GRIFFIN_DEV_TOKEN` | empty | reserved dev token |
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | CORS origin |
 
-No API keys are required to run. Without `LLM_API_KEY` Gryphon boots in deterministic mock-LLM mode; tool calls from the mock provider are still executed through the real registry.
+No API keys are required to run. Without `LLM_API_KEY` Griffin boots in deterministic mock-LLM mode; tool calls from the mock provider are still executed through the real registry.
 
 ## Build and Run Commands
 
@@ -204,7 +204,7 @@ Event types: `SESSION_CREATED`, `MESSAGE_RECEIVED`, `TASK_STARTED`, `AGENT_START
 ### Backend
 
 - **App factory pattern**: `backend.main:create_app(settings=None)` builds the FastAPI app. The app instance is `backend.main:app`.
-- **Lifespan wiring**: DB tables, tool registry, LLM provider, WebSocket manager, and event bus are created in the lifespan and stored in `app.state.gryphon` (`backend.core.state.AppState`).
+- **Lifespan wiring**: DB tables, tool registry, LLM provider, WebSocket manager, and event bus are created in the lifespan and stored in `app.state.griffin` (`backend.core.state.AppState`).
 - **Services + repository pattern**: `backend/services/*.py` hold high-level operations; `backend/memory/retrieval.py` holds raw data-access functions. **Important**: the current code imports `from backend.memory import retrieval` but many call sites reference an undefined name `repository`. See Known Issues below.
 - **Logging**: `backend.core.logging` provides JSON-line structured logging. Never log secrets/API keys.
 - **Tool model**: `backend/tools/schemas.py` defines `Tool` (name, description, JSON input schema, permission, async handler) and `ToolResult`. `ToolRegistry.openai_schemas()` hides `privileged` tools from the LLM.
@@ -214,8 +214,8 @@ Event types: `SESSION_CREATED`, `MESSAGE_RECEIVED`, `TASK_STARTED`, `AGENT_START
 
 - **Path alias**: `@/` maps to `frontend/src/`.
 - **Presentational primitive**: `frontend/src/components/ui/glass-card.tsx` exports `GlassCard*` and is the base for most dashboard surfaces.
-- **State management**: `GryphonProvider` (`frontend/src/lib/useGryphonEvents.tsx`) is a React context that seeds events from `/api/events`, subscribes to `/ws`, and derives UI state (current task, tool activity, notifications, avatar state).
-- **Avatar isolation**: `AvatarRenderer` only receives `AvatarState`; it does not know about chat or tasks. Click dispatches `gryphon:avatar-activate`; double-click recenters; drag position persists to `localStorage`.
+- **State management**: `GriffinProvider` (`frontend/src/lib/useGriffinEvents.tsx`) is a React context that seeds events from `/api/events`, subscribes to `/ws`, and derives UI state (current task, tool activity, notifications, avatar state).
+- **Avatar isolation**: `AvatarRenderer` only receives `AvatarState`; it does not know about chat or tasks. Click dispatches `griffin:avatar-activate`; double-click recenters; drag position persists to `localStorage`.
 - **LAN-friendly URLs**: `frontend/src/lib/api.ts` derives `API_BASE` from `location.hostname` and port `8000`, unless `VITE_API_BASE` is set at build time.
 - **Types**: `frontend/src/lib/types.ts` mirrors the backend event envelope and API contracts.
 
@@ -227,7 +227,7 @@ Event types: `SESSION_CREATED`, `MESSAGE_RECEIVED`, `TASK_STARTED`, `AGENT_START
 ## Security Considerations
 
 - The only privileged tool, `system.execute_shell`, is registered but explicitly refuses execution in Phase 0.
-- API keys and `GRYPHON_DEV_TOKEN` live only in `config/.env`, which is gitignored.
+- API keys and `GRIFFIN_DEV_TOKEN` live only in `config/.env`, which is gitignored.
 - CORS allows the configured `FRONTEND_ORIGIN` plus localhost/127.0.0.1 and common LAN IP ranges (`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`). Dev servers are intended for LAN-only use, not public exposure.
 - Structured logging is configured to avoid emitting reserved log fields; secrets must never be passed into `extra={...}`.
 

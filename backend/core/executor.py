@@ -16,7 +16,7 @@ from backend.core.permissions import is_executable
 from backend.tools.registry import ToolRegistry
 from backend.tools.schemas import ToolResult
 
-logger = get_logger("gryphon.executor")
+logger = get_logger("griffin.executor")
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 

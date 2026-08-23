@@ -1,6 +1,6 @@
 import { AlertTriangle, Info, ShieldAlert, X } from "lucide-react"
 
-import { useGryphonEvents } from "@/lib/useGryphonEvents"
+import { useGriffinEvents } from "@/lib/useGriffinEvents"
 import { cn } from "@/lib/utils"
 
 const LEVEL_STYLES = {
@@ -22,7 +22,7 @@ const LEVEL_ICON_TONES = {
 } as const
 
 export function NotificationStack() {
-  const { notifications, dismissNotification } = useGryphonEvents()
+  const { notifications, dismissNotification } = useGriffinEvents()
 
   if (notifications.length === 0) return null
 

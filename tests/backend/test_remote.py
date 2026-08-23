@@ -119,7 +119,7 @@ async def test_native_scroll_uses_pixel_units_and_both_axes():
 
 async def test_remote_pair_input_frame_and_stop(client, app):
     adapter = FakeAdapter()
-    app.state.gryphon.remote = RemoteControlService(adapter=adapter)
+    app.state.griffin.remote = RemoteControlService(adapter=adapter)
 
     status = (await client.get("/api/remote")).json()
     assert status["state"] == "idle"
@@ -178,7 +178,7 @@ async def test_remote_pair_input_frame_and_stop(client, app):
 
 
 async def test_remote_rejects_incomplete_input(client, app):
-    app.state.gryphon.remote = RemoteControlService(adapter=FakeAdapter())
+    app.state.griffin.remote = RemoteControlService(adapter=FakeAdapter())
     started = (await client.post("/api/remote/session")).json()
     paired = (await client.post("/api/remote/pair", json={"code": started["pairing_code"]})).json()
     response = await client.post(

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WebSocket smoke test for the Gryphon backend.
+"""WebSocket smoke test for the Griffin backend.
 
 Connects to ws://127.0.0.1:8899/ws, verifies the CONNECTED hello and any
 persisted-event replay, then POSTs a chat message via HTTP and verifies the

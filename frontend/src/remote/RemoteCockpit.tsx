@@ -43,7 +43,7 @@ import {
 import type { RemoteApplication, RemoteInput, RemoteStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-const TOKEN_KEY = "gryphon.remote.token"
+const TOKEN_KEY = "griffin.remote.token"
 
 const REMOTE_APPS: Array<{
   id: RemoteApplication
@@ -98,7 +98,7 @@ function PairingView({ status, onStatus }: { status: RemoteStatus | null; onStat
           </div>
           <MonitorUp className="mb-5 h-11 w-11 text-cyan-200" strokeWidth={1.4} />
           <h2 className="max-w-lg text-3xl font-semibold leading-tight text-white sm:text-4xl">Put your Mac in your hand.</h2>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">On your Mac, switch Gryphon to Desktop mode and start the phone remote. Enter the six-digit code shown there.</p>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">On your Mac, switch Griffin to Desktop mode and start the phone remote. Enter the six-digit code shown there.</p>
         </div>
         <div className="mt-8 flex flex-wrap gap-2">
           <PermissionPill ok={status?.permissions.screen_recording ?? false}>Screen recording</PermissionPill>
@@ -130,7 +130,7 @@ function PairingView({ status, onStatus }: { status: RemoteStatus | null; onStat
           Connect to Mac
         </Button>
         {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
-        {!status?.ready && status?.supported && <p className="mt-5 text-xs leading-5 text-amber-100/75">Allow Screen Recording and Accessibility for your terminal app in System Settings → Privacy &amp; Security, then restart Gryphon.</p>}
+        {!status?.ready && status?.supported && <p className="mt-5 text-xs leading-5 text-amber-100/75">Allow Screen Recording and Accessibility for your terminal app in System Settings → Privacy &amp; Security, then restart Griffin.</p>}
       </section>
     </div>
   )
@@ -223,7 +223,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
     setOpeningSettings(true)
     try {
       await openRemoteAccessibilitySettings(token)
-      setControlError("Accessibility Settings opened on your Mac. Enable the listed Python runtime, then restart Gryphon.")
+      setControlError("Accessibility Settings opened on your Mac. Enable the listed Python runtime, then restart Griffin.")
     } catch (reason) {
       setControlError(reason instanceof Error ? reason.message : "Could not open Accessibility Settings on the Mac.")
     } finally {
@@ -452,7 +452,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
         </div>
       </div>
       {!status.permissions.accessibility && <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
-        <p>Mirroring works, but macOS is discarding scroll and keyboard events. Enable Accessibility for Gryphon’s Python runtime.</p>
+        <p>Mirroring works, but macOS is discarding scroll and keyboard events. Enable Accessibility for Griffin’s Python runtime.</p>
         {status.permission_target && <p className="mt-1 break-all font-mono text-[10px] text-amber-100/70">{status.permission_target}</p>}
         <Button variant="outline" size="sm" className="mt-2" disabled={openingSettings} onClick={() => void openAccessibility()}>
           {openingSettings ? <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Settings2 className="mr-1.5 h-3.5 w-3.5" />}

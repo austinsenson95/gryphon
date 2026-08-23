@@ -18,7 +18,7 @@ from pathlib import Path
 from backend.core import context as run_context
 from backend.core.logging import get_logger
 
-logger = get_logger("gryphon.tools.browser")
+logger = get_logger("griffin.tools.browser")
 
 
 class BrowserManager:

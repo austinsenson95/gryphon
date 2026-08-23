@@ -75,10 +75,10 @@ async def test_browser_open_url_mock_fallback(registry, monkeypatch):
 
 
 async def test_web_search_mock_when_unconfigured(registry):
-    result = await executor.execute_tool(registry, "web.search", {"query": "gryphon"})
+    result = await executor.execute_tool(registry, "web.search", {"query": "griffin"})
     assert result.success is True
     assert result.data["mock"] is True
-    assert result.data["query"] == "gryphon"
+    assert result.data["query"] == "griffin"
     assert len(result.data["results"]) == 3
     assert all(item["mock"] for item in result.data["results"])
 

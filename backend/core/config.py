@@ -19,7 +19,7 @@ _ENV_FILE = Path(__file__).resolve().parents[2] / "config" / ".env"
 
 
 class Settings(BaseSettings):
-    """Gryphon backend settings. Env var names are contractual."""
+    """Griffin backend settings. Env var names are contractual."""
 
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     )
 
     # Core
-    app_name: str = "Gryphon"
+    app_name: str = "Griffin"
     environment: str = "development"
     host: str = "0.0.0.0"
     port: int = 8000
@@ -62,8 +62,8 @@ class Settings(BaseSettings):
 
     # Browser automation (Phase 1 — Griffin-controlled browser)
     browser_goto_timeout_ms: int = 15_000
-    browser_profile_dir: str = "~/.gryphon/browser-profile"
-    browser_screenshot_dir: str = "~/.gryphon/browser-screenshots"
+    browser_profile_dir: str = "~/.griffin/browser-profile"
+    browser_screenshot_dir: str = "~/.griffin/browser-screenshots"
 
     # Agent loop rails (Phase 1)
     agent_max_steps: int = 4  # max LLM/tool iterations per run (prevents loops)
@@ -77,14 +77,14 @@ class Settings(BaseSettings):
         "iTerm,Notes,Calendar,Finder,Slack,Spotify"
     )
     allowed_directories: str = "~/Projects,~/Documents,~/Desktop,~/Downloads"
-    projects: str = ""  # JSON object: {"gryphon": "~/Projects/gryphon", ...}
+    projects: str = ""  # JSON object: {"griffin": "~/Projects/griffin", ...}
     search_engine_url: str = "https://www.google.com/search?q={query}"
     news_sites: str = "https://news.ycombinator.com"
     research_topic: str = "latest AI agent frameworks"
 
     # Storage / security
-    database_url: str = "sqlite:///./gryphon.db"
-    gryphon_dev_token: str = ""
+    database_url: str = "sqlite:///./griffin.db"
+    griffin_dev_token: str = ""
 
     # CORS
     frontend_origin: str = "http://localhost:5173"
@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     def async_database_url(self) -> str:
         """Translate the configured DATABASE_URL into an async driver URL.
 
-        `sqlite:///./gryphon.db` -> `sqlite+aiosqlite:///./gryphon.db`.
+        `sqlite:///./griffin.db` -> `sqlite+aiosqlite:///./griffin.db`.
         Already-async URLs pass through untouched.
         """
         url = self.database_url

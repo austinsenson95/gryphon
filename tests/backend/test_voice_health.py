@@ -36,9 +36,9 @@ def patched_open(monkeypatch):
 
 
 async def test_voice_transcribes_and_executes(client, app, patched_open):
-    app.state.gryphon.stt = FakeSTT("Open GitHub")
+    app.state.griffin.stt = FakeSTT("Open GitHub")
     events = []
-    app.state.gryphon.bus.subscribe(events.append)
+    app.state.griffin.bus.subscribe(events.append)
 
     response = await client.post(
         "/api/voice",
@@ -59,7 +59,7 @@ async def test_voice_transcribes_and_executes(client, app, patched_open):
 
 
 async def test_voice_stt_unavailable(client, app):
-    app.state.gryphon.stt = FakeSTT(STTUnavailableError("no engine"))
+    app.state.griffin.stt = FakeSTT(STTUnavailableError("no engine"))
     response = await client.post("/api/voice", content=b"\x00audio")
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "STT_UNAVAILABLE"

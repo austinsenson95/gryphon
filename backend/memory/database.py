@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import (
 from backend.core.logging import get_logger
 from backend.memory.models import Base
 
-logger = get_logger("gryphon.db")
+logger = get_logger("griffin.db")
 
 
 class Database:

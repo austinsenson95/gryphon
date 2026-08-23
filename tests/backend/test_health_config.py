@@ -6,7 +6,7 @@ async def test_health_endpoint(client):
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["service"] == "gryphon"
+    assert body["service"] == "griffin"
     assert body["version"]
     assert body["llm_mode"] in ("live", "mock")
 
@@ -20,7 +20,7 @@ def test_config_defaults():
     from backend.core.config import Settings
 
     settings = Settings(_env_file=None)
-    assert settings.app_name == "Gryphon"
+    assert settings.app_name == "Griffin"
     assert settings.environment == "development"
     assert settings.host == "0.0.0.0"
     assert settings.port == 8000
@@ -34,12 +34,12 @@ def test_config_defaults():
 def test_config_env_override(monkeypatch):
     from backend.core.config import Settings
 
-    monkeypatch.setenv("APP_NAME", "GryphonTest")
+    monkeypatch.setenv("APP_NAME", "GriffinTest")
     monkeypatch.setenv("PORT", "9999")
     monkeypatch.setenv("LLM_API_KEY", "sk-test")
     monkeypatch.setenv("LLM_PROVIDER", "openai_compatible")
     settings = Settings(_env_file=None)
-    assert settings.app_name == "GryphonTest"
+    assert settings.app_name == "GriffinTest"
     assert settings.port == 9999
     assert settings.llm_mode == "live"
 
@@ -65,8 +65,8 @@ def test_config_xai_without_key_is_mock(monkeypatch):
 def test_async_database_url_translation():
     from backend.core.config import Settings
 
-    settings = Settings(database_url="sqlite:///./gryphon.db", _env_file=None)
-    assert settings.async_database_url == "sqlite+aiosqlite:///./gryphon.db"
+    settings = Settings(database_url="sqlite:///./griffin.db", _env_file=None)
+    assert settings.async_database_url == "sqlite+aiosqlite:///./griffin.db"
 
 
 def test_cors_origins_include_frontend():

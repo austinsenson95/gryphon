@@ -12,7 +12,7 @@ from backend.core.logging import get_logger
 from backend.tools import browser, desktop, research, terminal, workflows
 from backend.tools.schemas import Tool
 
-logger = get_logger("gryphon.tools")
+logger = get_logger("griffin.tools")
 
 
 class ToolRegistry:

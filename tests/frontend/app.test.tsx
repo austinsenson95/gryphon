@@ -5,22 +5,13 @@ import userEvent from "@testing-library/user-event"
 import App from "@/App"
 
 describe("App", () => {
-  it("renders the dashboard with all GlassCard surfaces", async () => {
+  it("renders the voice-first Griffin canvas", () => {
     render(<App />)
 
-    expect(screen.getByText("GRYPHON")).toBeInTheDocument()
-    expect(screen.getByText("Current Task")).toBeInTheDocument()
-    expect(screen.getByText("Activity Timeline")).toBeInTheDocument()
-    expect(screen.getByText("Tool Activity")).toBeInTheDocument()
-    expect(screen.getByText("Chat")).toBeInTheDocument()
-    expect(screen.getByText("Presence")).toBeInTheDocument()
-    expect(screen.getByText("Phone remote")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "true")
-
-    // health fetch resolves -> live/mock badge and provider toggle appear
-    expect(await screen.findByText("MOCK")).toBeInTheDocument()
-    expect(screen.getByTestId("connection-dot")).toBeInTheDocument()
-    expect(screen.getByTestId("provider-toggle")).toBeInTheDocument()
+    expect(screen.getByText("What would you like to do?")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Griffin account" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Desktop view" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByTestId("mic-button")).toBeInTheDocument()
   })
 
   it("opens the phone remote pairing cockpit", async () => {
@@ -34,7 +25,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Connect to Mac" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "Phone" })).toHaveAttribute("aria-pressed", "true")
 
-    await user.click(screen.getByRole("button", { name: "Desktop" }))
-    expect(screen.getByText("Current Task")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Desktop view" }))
+    expect(screen.getByText("What would you like to do?")).toBeInTheDocument()
   })
 })

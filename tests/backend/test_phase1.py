@@ -16,12 +16,12 @@ from backend.tools.registry import create_default_registry
 
 @pytest.fixture
 def phase1_settings(tmp_path) -> Settings:
-    (tmp_path / "projects" / "gryphon").mkdir(parents=True)
+    (tmp_path / "projects" / "griffin").mkdir(parents=True)
     (tmp_path / "docs").mkdir()
     return Settings(
         database_url=f"sqlite:///{tmp_path}/test.db",
         allowed_directories=f"{tmp_path}/projects,{tmp_path}/docs",
-        projects='{"gryphon": "' + str(tmp_path / "projects" / "gryphon") + '"}',
+        projects='{"griffin": "' + str(tmp_path / "projects" / "griffin") + '"}',
         _env_file=None,
     )
 
@@ -123,10 +123,10 @@ async def test_open_folder_confined_to_allowlist(phase1_registry, phase1_setting
 
 
 async def test_open_project_requires_registry(phase1_registry, tmp_path, fake_open):
-    project_dir = tmp_path / "projects" / "gryphon"  # created by phase1_settings
+    project_dir = tmp_path / "projects" / "griffin"  # created by phase1_settings
 
     ok = await executor.execute_tool(
-        phase1_registry, "desktop.open_project", {"project": "gryphon"}
+        phase1_registry, "desktop.open_project", {"project": "griffin"}
     )
     assert ok.success
     assert ok.data["path"] == str(project_dir.resolve())
@@ -233,5 +233,5 @@ async def test_mock_provider_maps_phase1_commands():
     call = await plan("Start my development environment")
     assert (call.name, call.arguments) == ("workflow.run", {"name": "start_development"})
 
-    call = await plan("Open my gryphon project")
-    assert (call.name, call.arguments) == ("desktop.open_project", {"project": "gryphon"})
+    call = await plan("Open my griffin project")
+    assert (call.name, call.arguments) == ("desktop.open_project", {"project": "griffin"})

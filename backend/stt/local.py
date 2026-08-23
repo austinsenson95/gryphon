@@ -22,7 +22,7 @@ from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.stt.base import SpeechToTextProvider, STTError, STTUnavailableError
 
-logger = get_logger("gryphon.stt.local")
+logger = get_logger("griffin.stt.local")
 
 _STT_TIMEOUT = 120.0
 

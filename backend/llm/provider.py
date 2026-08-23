@@ -23,7 +23,7 @@ from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMToolCall
 
-logger = get_logger("gryphon.llm")
+logger = get_logger("griffin.llm")
 
 _OPEN_URL_RE = re.compile(r"open\s+(https?://\S+)", re.IGNORECASE)
 _GO_TO_URL_RE = re.compile(r"go\s+to\s+(https?://\S+)", re.IGNORECASE)
@@ -82,7 +82,7 @@ _WORKFLOW_ALIASES = {
 }
 
 _MOCK_IDENTITY = (
-    "I'm Gryphon, a local-first personal AI assistant (running in mock mode — "
+    "I'm Griffin, a local-first personal AI assistant (running in mock mode — "
     "no LLM configured). I can open apps and websites, search the web, open "
     "projects and folders, and run workflows. Try: \"Open GitHub\", \"Open "
     "VS Code\", \"Search the web for local news\", or \"Start my development "
@@ -249,7 +249,7 @@ class MockLLMProvider(LLMProvider):
             )
         if name == "system.get_info":
             return (
-                f"This is {data.get('app', 'Gryphon')} v{data.get('version', '?')} "
+                f"This is {data.get('app', 'Griffin')} v{data.get('version', '?')} "
                 f"running on {data.get('platform', 'this machine')} "
                 f"(Python {data.get('python_version', '?')}, host {data.get('hostname', '?')})."
             )

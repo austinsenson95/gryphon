@@ -15,7 +15,7 @@ async def test_chat_creates_session_and_responds(client):
     assert body["session_id"]
     assert body["message_id"]
     assert body["task_id"]
-    assert "Gryphon" in body["response"]
+    assert "Griffin" in body["response"]
     assert body["tool_calls"] == []
 
     events = await client.get("/api/events", params={"limit": 50})
@@ -99,7 +99,7 @@ async def test_get_task_not_found(client):
 
 async def test_websocket_hello_and_live_events(app):
     # Pre-seed one event so the replay path is exercised too.
-    state = app.state.gryphon
+    state = app.state.griffin
     from backend.events.events import new_event
 
     await state.bus.publish(new_event(EventType.SESSION_CREATED, session_id="ses_seed"))

@@ -96,12 +96,12 @@ export function DesktopRemoteCard() {
           </div>
         ) : (
           <div className="rounded-2xl border border-white/10 bg-white/[.04] p-4">
-            <p className="text-sm leading-6 text-slate-300">Keep Gryphon open on this Mac. Start a session, then switch Gryphon to Phone mode on your phone.</p>
+            <p className="text-sm leading-6 text-slate-300">Keep Griffin open on this Mac. Start a session, then switch Griffin to Phone mode on your phone.</p>
             <p className="mt-2 flex items-center gap-2 font-mono text-[11px] text-cyan-100/65"><Link2 className="h-3.5 w-3.5" />{phoneUrl}</p>
           </div>
         )}
 
-        {!status?.ready && status?.supported && <p className="mt-3 text-xs leading-5 text-amber-100/80">Before connecting, allow Screen Recording and Accessibility for the app running Gryphon in System Settings → Privacy &amp; Security.</p>}
+        {!status?.ready && status?.supported && <p className="mt-3 text-xs leading-5 text-amber-100/80">Before connecting, allow Screen Recording and Accessibility for the app running Griffin in System Settings → Privacy &amp; Security.</p>}
         {error && <p role="alert" className="mt-3 text-xs text-red-300">{error}</p>}
 
         <Button className="mt-4 w-full" disabled={busy || status?.supported === false} onClick={status?.state === "idle" || !status ? start : stop}>

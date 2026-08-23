@@ -1,7 +1,7 @@
 import type {
   BrowserStatus,
   ChatResponse,
-  GryphonEvent,
+  GriffinEvent,
   HealthResponse,
   ProviderInfoResponse,
   VoiceResponse,
@@ -52,8 +52,8 @@ export function sendChat(
   })
 }
 
-export function getEvents(limit = 50): Promise<GryphonEvent[]> {
-  return request<GryphonEvent[]>(`/api/events?limit=${limit}`)
+export function getEvents(limit = 50): Promise<GriffinEvent[]> {
+  return request<GriffinEvent[]>(`/api/events?limit=${limit}`)
 }
 
 export function getProviderInfo(): Promise<ProviderInfoResponse> {

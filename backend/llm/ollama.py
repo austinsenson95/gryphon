@@ -20,7 +20,7 @@ from backend.core.config import Settings
 from backend.core.logging import get_logger
 from backend.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMToolCall
 
-logger = get_logger("gryphon.llm.ollama")
+logger = get_logger("griffin.llm.ollama")
 
 
 class OllamaUnavailableError(RuntimeError):

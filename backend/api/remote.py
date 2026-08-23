@@ -67,7 +67,7 @@ async def remote_status(request: Request, state: AppState = Depends(get_state)) 
 @router.post("/session")
 async def start_remote(request: Request, state: AppState = Depends(get_state)) -> dict:
     if not _is_lan_request(request):
-        raise HTTPException(403, detail={"code": "LAN_ONLY", "message": "Screen sharing can only start from Gryphon's local network."})
+        raise HTTPException(403, detail={"code": "LAN_ONLY", "message": "Screen sharing can only start from Griffin's local network."})
     result = state.remote.start()
     await state.bus.publish(new_event(EventType.REMOTE_SESSION_STARTED, data={"device_name": result["device_name"]}))
     return result

@@ -28,7 +28,7 @@ from backend.tools.browser import (
 )
 from backend.tools.schemas import Tool, ToolResult
 
-logger = get_logger("gryphon.tools.browser")
+logger = get_logger("griffin.tools.browser")
 
 _MOCK_NOTE = "playwright unavailable (mock fallback)"
 
@@ -243,7 +243,7 @@ def register(registry, settings, bus=None) -> None:
             "description": (
                 "Accessible name / visible text of the element. This is the "
                 "primary way to identify a target, e.g. 'Search', "
-                "'garethdmm/gryphon'."
+                "'garethdmm/griffin'."
             ),
         },
         "placeholder": {

@@ -38,7 +38,7 @@ from backend.services.notification_service import NotificationService
 from backend.services.task_service import TaskService
 from backend.tools.registry import ToolRegistry
 
-logger = get_logger("gryphon.agent")
+logger = get_logger("griffin.agent")
 
 MAX_TOOL_ITERATIONS = 4  # fallback when settings.agent_max_steps is unset
 

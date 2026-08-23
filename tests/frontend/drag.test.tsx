@@ -14,7 +14,7 @@ describe("AvatarRenderer dragging", () => {
 
   it("drags via pointer events, updates position and persists to localStorage", () => {
     const { getByRole } = render(<AvatarRenderer state="IDLE" size={96} />)
-    const el = getByRole("button", { name: /gryphon avatar/i })
+    const el = getByRole("button", { name: /griffin avatar/i })
 
     const startLeft = parseFloat(el.style.left)
     const startTop = parseFloat(el.style.top)
@@ -38,7 +38,7 @@ describe("AvatarRenderer dragging", () => {
     const onActivate = vi.fn()
     window.addEventListener(AVATAR_ACTIVATE_EVENT, onActivate)
     const { getByRole } = render(<AvatarRenderer state="IDLE" size={96} />)
-    const el = getByRole("button", { name: /gryphon avatar/i })
+    const el = getByRole("button", { name: /griffin avatar/i })
     const startLeft = el.style.left
 
     fireEvent.pointerDown(el, { pointerId: 1, clientX: 900, clientY: 500 })
@@ -53,7 +53,7 @@ describe("AvatarRenderer dragging", () => {
 
   it("clamps the position to the viewport", () => {
     const { getByRole } = render(<AvatarRenderer state="IDLE" size={96} />)
-    const el = getByRole("button", { name: /gryphon avatar/i })
+    const el = getByRole("button", { name: /griffin avatar/i })
 
     fireEvent.pointerDown(el, { pointerId: 1, clientX: 500, clientY: 500 })
     fireEvent.pointerMove(el, { pointerId: 1, clientX: -5000, clientY: -5000 })
@@ -72,7 +72,7 @@ describe("AvatarRenderer dragging", () => {
       JSON.stringify({ x: 10, y: 10 }),
     )
     const { getByRole } = render(<AvatarRenderer state="IDLE" size={96} />)
-    const el = getByRole("button", { name: /gryphon avatar/i })
+    const el = getByRole("button", { name: /griffin avatar/i })
     expect(parseFloat(el.style.left)).toBe(12) // clamped by viewport margin
 
     fireEvent.doubleClick(el)

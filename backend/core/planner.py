@@ -19,7 +19,7 @@ HISTORY_LIMIT = 20
 _PROMPT_FILE = Path(__file__).resolve().parents[2] / "prompts" / "agent_system.txt"
 
 _FALLBACK_PROMPT = (
-    "You are Gryphon, a local-first personal AI assistant. You may only act by "
+    "You are Griffin, a local-first personal AI assistant. You may only act by "
     "calling registered tools; never output executable code. Available tools:\n"
     "{command_catalog}"
 )
