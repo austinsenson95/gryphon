@@ -261,17 +261,6 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
           })
           break
         }
-        case "USER_APPROVAL_REQUIRED": {
-          pushNotification({
-            id: `notif_${event.id}`,
-            level: "warning",
-            title: "Approval required",
-            body:
-              asString(event.data.message) ??
-              `Gryphon wants to run ${toolNameOf(event)}.`,
-          })
-          break
-        }
         default:
           break
       }

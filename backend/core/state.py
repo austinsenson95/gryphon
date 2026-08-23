@@ -16,6 +16,7 @@ from backend.llm.base import LLMProvider
 from backend.llm.provider import create_provider
 from backend.stt.base import SpeechToTextProvider
 from backend.tools.registry import ToolRegistry
+from backend.remote.service import RemoteControlService
 
 
 @dataclass
@@ -27,6 +28,7 @@ class AppState:
     bus: EventBus
     ws_manager: WebSocketManager
     stt: SpeechToTextProvider
+    remote: RemoteControlService
 
     @property
     def llm_mode(self) -> str:

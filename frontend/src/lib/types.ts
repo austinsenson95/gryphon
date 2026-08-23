@@ -23,6 +23,9 @@ export const EVENT_TYPES = [
   "PERMISSION_DENIED",
   "BROWSER_NAVIGATION",
   "BROWSER_PAGE_LOADED",
+  "REMOTE_SESSION_STARTED",
+  "REMOTE_DEVICE_PAIRED",
+  "REMOTE_SESSION_STOPPED",
 ] as const
 
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -82,6 +85,33 @@ export interface BrowserStatus {
   url: string | null
   title: string | null
 }
+
+export interface RemoteStatus {
+  supported: boolean
+  device_name: string
+  lan_address: string | null
+  state: "idle" | "pairing" | "paired"
+  expires_at: string | null
+  permissions: {
+    screen_recording: boolean
+    accessibility: boolean
+  }
+  ready: boolean
+  can_start?: boolean
+  pairing_code?: string
+}
+
+export interface RemotePairResponse extends RemoteStatus {
+  token: string
+}
+
+export type RemoteInput =
+  | { type: "tap" | "double_tap" | "secondary_tap" | "move"; x: number; y: number }
+  | { type: "scroll"; dx?: number; dy: number }
+  | { type: "text"; text: string }
+  | { type: "key"; key: string; modifiers?: string[] }
+
+export type RemoteApplication = "hermes" | "spotify" | "notes" | "vscode" | "terminal"
 
 export interface ChatMessage {
   id: string

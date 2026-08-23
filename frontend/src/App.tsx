@@ -20,6 +20,12 @@ import { GRYPHON_HERO_BACKGROUND } from "@/components/ui/ghibli-robot-hero.demo"
 import { GryphonProvider, useGryphonEvents } from "@/lib/useGryphonEvents"
 import { cn } from "@/lib/utils"
 import type { ConnectionStatus, LLMProvider } from "@/lib/types"
+import { useState } from "react"
+import { Laptop, Smartphone } from "lucide-react"
+import { RemoteCockpit } from "@/remote/RemoteCockpit"
+import { DesktopRemoteCard } from "@/remote/DesktopRemoteCard"
+
+type ViewMode = "desktop" | "phone"
 
 const DOT_STYLES: Record<ConnectionStatus, string> = {
   open: "bg-emerald-400",
@@ -84,7 +90,7 @@ function ProviderToggle() {
   )
 }
 
-function Header() {
+function Header({ mode, onMode }: { mode: ViewMode; onMode: (mode: ViewMode) => void }) {
   const { connectionStatus } = useGryphonEvents()
   return (
     <header className="flex flex-wrap items-center gap-3">
@@ -105,6 +111,10 @@ function Header() {
         {DOT_LABELS[connectionStatus]}
       </span>
       <ProviderToggle />
+      <div aria-label="Portal mode" className="ml-auto flex rounded-xl border border-white/10 bg-slate-950/45 p-1 backdrop-blur-xl">
+        <button aria-pressed={mode === "desktop"} onClick={() => onMode("desktop")} className={cn("flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition", mode === "desktop" ? "bg-amber-300 text-slate-950 shadow-sm" : "text-slate-300 hover:text-white")}><Laptop className="h-3.5 w-3.5" />Desktop</button>
+        <button aria-pressed={mode === "phone"} onClick={() => onMode("phone")} className={cn("flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition", mode === "phone" ? "bg-cyan-200 text-slate-950 shadow-sm" : "text-slate-300 hover:text-white")}><Smartphone className="h-3.5 w-3.5" />Phone</button>
+      </div>
     </header>
   )
 }
@@ -165,17 +175,30 @@ function BackgroundHero() {
 
 function Dashboard() {
   const { avatarState } = useGryphonEvents()
+  const [mode, setMode] = useState<ViewMode>(() => {
+    const params = new URLSearchParams(location.search)
+    return params.get("mode") === "phone" || params.has("remote") ? "phone" : "desktop"
+  })
+  const changeMode = (next: ViewMode) => {
+    setMode(next)
+    const url = new URL(location.href)
+    url.searchParams.delete("remote")
+    if (next === "phone") url.searchParams.set("mode", "phone")
+    else url.searchParams.delete("mode")
+    window.history.replaceState({}, "", url)
+  }
   return (
     <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 overflow-x-hidden p-4 sm:p-6">
-      <Header />
-      <main className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <Header mode={mode} onMode={changeMode} />
+      {mode === "phone" ? <RemoteCockpit /> : <main className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         <PresenceCard />
         <CurrentTaskCard />
         <ChatPanel />
+        <DesktopRemoteCard />
         <ActivityTimeline />
         <ToolActivityCard className="md:col-span-2" />
-      </main>
-      <AvatarRenderer state={avatarState} />
+      </main>}
+      {mode === "desktop" && <AvatarRenderer state={avatarState} />}
       <NotificationStack />
     </div>
   )

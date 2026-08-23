@@ -7,6 +7,7 @@ import {
   Globe,
   ListTodo,
   MessageSquare,
+  MonitorSmartphone,
   Play,
   ShieldAlert,
   ShieldCheck,
@@ -51,6 +52,9 @@ const EVENT_ICONS: Record<EventType, LucideIcon> = {
   PERMISSION_DENIED: ShieldX,
   BROWSER_NAVIGATION: Globe,
   BROWSER_PAGE_LOADED: Globe,
+  REMOTE_SESSION_STARTED: MonitorSmartphone,
+  REMOTE_DEVICE_PAIRED: ShieldCheck,
+  REMOTE_SESSION_STOPPED: XCircle,
 }
 
 function iconTone(type: EventType): string {
@@ -70,6 +74,8 @@ function iconTone(type: EventType): string {
     case "TOOL_CALL_STARTED":
     case "BROWSER_NAVIGATION":
     case "BROWSER_PAGE_LOADED":
+    case "REMOTE_SESSION_STARTED":
+    case "REMOTE_DEVICE_PAIRED":
       return "text-cyan-300"
     default:
       return "text-slate-300"

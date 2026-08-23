@@ -52,6 +52,107 @@
 }
 
 @layer components {
+  .remote-stage {
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(34, 211, 238, 0.08), transparent 35%),
+      linear-gradient(rgba(125, 211, 252, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(125, 211, 252, 0.025) 1px, transparent 1px);
+    background-size: auto, 24px 24px, 24px 24px;
+  }
+
+  .remote-corner {
+    @apply pointer-events-none absolute h-6 w-6 border-cyan-200/55;
+  }
+  .remote-corner--tl { @apply left-3 top-3 border-l border-t; }
+  .remote-corner--tr { @apply right-3 top-3 border-r border-t; }
+  .remote-corner--bl { @apply bottom-3 left-3 border-b border-l; }
+  .remote-corner--br { @apply bottom-3 right-3 border-b border-r; }
+
+  .remote-immersive__layout {
+    @apply flex min-h-0 flex-col gap-3;
+  }
+
+  .remote-screen-column {
+    @apply flex min-h-0 min-w-0 flex-col;
+  }
+
+  .remote-control-rail {
+    @apply flex min-h-0 flex-col gap-3;
+  }
+
+  .remote-rotate-hint {
+    display: none;
+  }
+
+  .remote-immersive {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    overflow: hidden;
+    padding:
+      max(0.5rem, env(safe-area-inset-top))
+      max(0.5rem, env(safe-area-inset-right))
+      max(0.5rem, env(safe-area-inset-bottom))
+      max(0.5rem, env(safe-area-inset-left));
+    background:
+      radial-gradient(circle at 18% 12%, rgba(34, 211, 238, 0.08), transparent 32%),
+      #020712;
+  }
+
+  .remote-immersive .remote-live-header {
+    flex: 0 0 auto;
+    padding-block: 0.45rem;
+  }
+
+  .remote-immersive .remote-immersive__layout {
+    flex: 1 1 0%;
+  }
+
+  @media (orientation: landscape) {
+    .remote-immersive .remote-immersive__layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(15rem, 28vw);
+      overflow: hidden;
+    }
+
+    .remote-immersive .remote-stage {
+      flex: 1 1 0%;
+      width: 100%;
+      height: auto;
+      min-height: 0;
+      aspect-ratio: auto !important;
+    }
+
+    .remote-immersive .remote-control-rail {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+
+    .remote-immersive .remote-click-row {
+      flex: 0 0 auto;
+    }
+  }
+
+  @media (orientation: portrait) {
+    .remote-immersive .remote-immersive__layout,
+    .remote-immersive > [role="alert"] {
+      display: none;
+    }
+
+    .remote-immersive .remote-rotate-hint {
+      display: flex;
+      flex: 1 1 0%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+  }
+
   /* ------------------------------------------------------------------ */
   /* Avatar state animations (pure CSS, no 3D)                          */
   /* ------------------------------------------------------------------ */

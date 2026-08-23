@@ -6,6 +6,10 @@ import type {
   ProviderInfoResponse,
   VoiceResponse,
   LLMProvider,
+  RemoteInput,
+  RemotePairResponse,
+  RemoteStatus,
+  RemoteApplication,
 } from "@/lib/types"
 
 /**
@@ -18,8 +22,8 @@ export const API_BASE =
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
   })
   if (!res.ok) {
     let detail = `HTTP ${res.status}`
@@ -65,6 +69,56 @@ export function setProvider(provider: LLMProvider): Promise<ProviderInfoResponse
     method: "POST",
     body: JSON.stringify({ provider }),
   })
+}
+
+export function getRemoteStatus(): Promise<RemoteStatus> {
+  return request<RemoteStatus>("/api/remote")
+}
+
+export function startRemoteSession(): Promise<RemoteStatus> {
+  return request<RemoteStatus>("/api/remote/session", { method: "POST" })
+}
+
+export function pairRemote(code: string): Promise<RemotePairResponse> {
+  return request<RemotePairResponse>("/api/remote/pair", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  })
+}
+
+export function stopRemoteSession(token?: string | null): Promise<{ stopped: boolean }> {
+  return request<{ stopped: boolean }>("/api/remote/session", {
+    method: "DELETE",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+}
+
+export function sendRemoteInput(token: string, input: RemoteInput): Promise<{ accepted: boolean }> {
+  return request<{ accepted: boolean }>("/api/remote/input", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
+  })
+}
+
+export function launchRemoteApplication(
+  token: string,
+  app: RemoteApplication,
+): Promise<{ opened: boolean; app: RemoteApplication; application: string }> {
+  return request<{ opened: boolean; app: RemoteApplication; application: string }>("/api/remote/app", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ app }),
+  })
+}
+
+export async function getRemoteFrame(token: string): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/api/remote/frame`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  })
+  if (!res.ok) throw new Error(`Screen unavailable (${res.status})`)
+  return res.blob()
 }
 
 /** Upload recorded audio for local speech-to-text + agent execution. */

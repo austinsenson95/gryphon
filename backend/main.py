@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.api import browser, chat, events, health, llm, tasks, voice, websocket
+from backend.api import browser, chat, events, health, llm, remote, tasks, voice, websocket
 from backend.core.config import APP_VERSION, Settings, get_settings
 from backend.core.logging import get_logger, setup_logging
 from backend.core.state import AppState
@@ -28,6 +28,7 @@ from backend.llm.ollama import OllamaProvider
 from backend.llm.provider import get_llm_provider
 from backend.stt.local import get_stt_provider
 from backend.tools.registry import create_default_registry
+from backend.remote.service import RemoteControlService
 
 logger = get_logger("gryphon.main")
 
@@ -74,6 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             bus=bus,
             ws_manager=ws_manager,
             stt=stt,
+            remote=RemoteControlService(),
         )
 
         # Startup verification for Ollama: report clearly instead of failing
@@ -149,6 +151,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(voice.router)
     app.include_router(tasks.router)
     app.include_router(events.router)
+    app.include_router(remote.router)
     app.include_router(websocket.router)
     return app
 
