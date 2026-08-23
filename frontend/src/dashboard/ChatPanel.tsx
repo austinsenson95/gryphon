@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
-import { Mic, MicOff, SendHorizonal } from "lucide-react"
+import { Dog, Mic, MicOff, SendHorizonal, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -147,39 +147,45 @@ export function ChatPanel() {
   }
 
   const busy = sending || voiceState === "transcribing"
+  const suggestions = ["What’s on my agenda?", "Open my workspace", "Start a focus timer"]
 
   return (
-    <GlassCard className="min-h-0">
+    <GlassCard className="min-h-0 xl:col-span-2">
       <GlassCardHeader>
-        <GlassCardTitle>Chat</GlassCardTitle>
-        <GlassCardDescription className="text-muted-foreground">
-          Talk to Gryphon.
-        </GlassCardDescription>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <GlassCardTitle className="flex items-center gap-2"><span className="brand-mark !h-7 !w-7 !rounded-lg"><Dog className="h-3.5 w-3.5" /></span><span>Gryphon chat</span><span className="sr-only">Chat</span></GlassCardTitle>
+            <GlassCardDescription className="mt-2 text-muted-foreground">Your calm command line for the day.</GlassCardDescription>
+          </div>
+          <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-black/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.14em] text-stone-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Ready</span>
+        </div>
       </GlassCardHeader>
-      <GlassCardContent className="flex min-h-0 flex-1 flex-col gap-3">
+      <GlassCardContent className="flex min-h-0 flex-1 flex-col gap-4">
         <div
           ref={scrollRef}
-          className="flex max-h-64 min-h-32 flex-col gap-2 overflow-y-auto pr-1"
+          className="flex max-h-72 min-h-40 flex-col gap-3 overflow-y-auto pr-1"
           aria-label="Chat messages"
         >
           {messages.length === 0 ? (
-            <div className="flex min-h-32 flex-col items-center justify-center gap-2 text-center">
-              <p className="text-sm text-white/70">
-                Ask Gryphon anything — try “Open GitHub” or tap the mic and say it.
-              </p>
-              <p className="text-xs text-white/50">
-                Replies appear here as Gryphon works.
-              </p>
+            <div className="flex min-h-40 flex-col items-center justify-center gap-3 text-center">
+              <span className="brand-mark !h-11 !w-11 rounded-2xl"><Dog className="h-5 w-5" /></span>
+              <div>
+                <p className="text-sm font-medium text-stone-200">What can I take off your paws?</p>
+                <p className="mt-1 text-xs text-stone-500">Ask, dictate, or start with a quick action.</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => setDraft(suggestion)} className="chat-suggestion rounded-full px-3 py-1.5 text-[11px] transition">{suggestion}</button>)}
+              </div>
             </div>
           ) : (
             messages.map((msg) => (
               <div
                 key={msg.id}
                 className={cn(
-                  "event-enter max-w-[85%] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed",
+                  "event-enter max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                   msg.role === "user"
-                    ? "self-end bg-primary/90 text-primary-foreground shadow-[0_4px_16px_rgba(2,8,23,0.3)]"
-                    : "self-start border border-white/10 bg-white/[0.09] text-white/90",
+                    ? "chat-message--user self-end"
+                    : "chat-message--assistant self-start text-stone-200",
                 )}
               >
                 {msg.content}
@@ -198,8 +204,7 @@ export function ChatPanel() {
             {VOICE_LABEL[voiceState]}
           </p>
         )}
-        <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/[.08] bg-black/[.14] p-1.5 shadow-inner">
           <Input
             ref={inputRef}
             data-testid="chat-input"
@@ -209,7 +214,7 @@ export function ChatPanel() {
             placeholder="Message Gryphon…"
             aria-label="Message Gryphon"
             disabled={busy}
-            className="h-11 rounded-xl border-white/15 bg-slate-950/40 text-white/90 backdrop-blur-sm transition-[border-color,box-shadow] placeholder:text-white/50 focus-visible:border-cyan-200/40 focus-visible:ring-1 focus-visible:ring-cyan-300/40 focus-visible:ring-offset-0"
+            className="h-11 border-0 bg-transparent text-stone-100 shadow-none focus-visible:ring-0"
           />
           <Button
             type="button"
@@ -219,7 +224,7 @@ export function ChatPanel() {
             onClick={() => void toggleRecording()}
             disabled={busy}
             className={cn(
-              "h-11 w-11 rounded-xl shadow-[0_4px_16px_rgba(2,8,23,0.35)] transition-all hover:brightness-110 active:scale-95",
+              "h-11 w-11 rounded-xl transition-all hover:brightness-110 active:scale-95",
               voiceState === "listening" &&
                 "bg-red-500/80 hover:bg-red-500 animate-pulse",
             )}
@@ -236,9 +241,9 @@ export function ChatPanel() {
             aria-label="Send message"
             onClick={() => void submit()}
             disabled={busy || draft.trim() === ""}
-            className="h-11 w-11 rounded-xl shadow-[0_4px_16px_rgba(2,8,23,0.35)] transition-all hover:brightness-110 active:scale-95"
+            className="h-11 w-11 rounded-xl transition-all hover:brightness-110 active:scale-95"
           >
-            <SendHorizonal className="h-4 w-4" />
+            {sending ? <Sparkles className="h-4 w-4 animate-pulse" /> : <SendHorizonal className="h-4 w-4" />}
           </Button>
         </div>
       </GlassCardContent>

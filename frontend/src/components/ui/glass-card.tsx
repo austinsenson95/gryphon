@@ -5,13 +5,9 @@ function GlassCard({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="glass-card"
       className={cn(
-        // Layered glass: dark blue tint strong enough to carry text, but the
-        // illustration still shows through the blur.
-        "flex flex-col gap-5 rounded-2xl border border-white/12 bg-[rgba(13,25,48,0.52)] py-6 text-white",
-        "backdrop-blur-[18px] backdrop-saturate-[1.25]",
-        "shadow-[0_8px_32px_rgba(2,8,23,0.35),inset_0_1px_0_rgba(255,255,255,0.06)]",
+        "surface-card flex flex-col gap-5 rounded-[1.35rem] border py-5 text-stone-100",
         "transition-[border-color,box-shadow,transform] duration-200",
-        "hover:-translate-y-px hover:border-white/20 hover:shadow-[0_14px_44px_rgba(2,8,23,0.45),inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "hover:-translate-y-px",
         className,
       )}
       {...props}
@@ -37,7 +33,7 @@ function GlassCardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="glass-card-title"
       className={cn(
-        "text-base leading-none font-semibold tracking-wide text-white/95",
+        "text-[15px] leading-none font-semibold tracking-wide text-stone-100",
         className,
       )}
       {...props}
@@ -52,7 +48,7 @@ function GlassCardDescription({
   return (
     <div
       data-slot="glass-card-description"
-      className={cn("text-sm text-white/70", className)}
+      className={cn("text-sm text-stone-400", className)}
       {...props}
     />
   )

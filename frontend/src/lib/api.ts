@@ -101,6 +101,15 @@ export function sendRemoteInput(token: string, input: RemoteInput): Promise<{ ac
   })
 }
 
+export function openRemoteAccessibilitySettings(
+  token?: string | null,
+): Promise<{ opened: boolean; permission_target: string }> {
+  return request<{ opened: boolean; permission_target: string }>("/api/remote/permissions/accessibility", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+}
+
 export function launchRemoteApplication(
   token: string,
   app: RemoteApplication,

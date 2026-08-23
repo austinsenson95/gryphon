@@ -92,5 +92,9 @@ class RemoteControlService:
             "state": "paired" if session and session.token else "pairing" if session else "idle",
             "expires_at": session.expires_at.isoformat() if session else None,
             "permissions": permissions,
+            "permission_target": (
+                getattr(self.adapter, "permission_target", lambda: None)()
+                if self.adapter.supported else None
+            ),
             "ready": self.adapter.supported and all(permissions.values()),
         }

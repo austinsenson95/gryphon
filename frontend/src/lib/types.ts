@@ -96,6 +96,7 @@ export interface RemoteStatus {
     screen_recording: boolean
     accessibility: boolean
   }
+  permission_target?: string | null
   ready: boolean
   can_start?: boolean
   pairing_code?: string

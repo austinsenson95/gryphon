@@ -10,6 +10,7 @@ class FakeAdapter:
     def __init__(self):
         self.actions = []
         self.opened_apps = []
+        self.settings_opened = False
 
     def permissions(self):
         return {"screen_recording": True, "accessibility": True}
@@ -28,6 +29,13 @@ class FakeAdapter:
         self.opened_apps.append(("hermes-cli",))
         return "Hermes Agent"
 
+    def permission_target(self):
+        return "/test/python3"
+
+    async def open_accessibility_settings(self):
+        self.settings_opened = True
+        return self.permission_target()
+
 
 def test_retina_pointer_mapping_uses_logical_display_bounds():
     adapter = MacRemoteAdapter()
@@ -38,6 +46,75 @@ def test_retina_pointer_mapping_uses_logical_display_bounds():
 
     assert point.x == 720
     assert point.y == 225
+
+
+async def test_native_text_posts_complete_unicode_key_pair():
+    class FakeCoreGraphics:
+        def __init__(self):
+            self.keyboard_events = []
+            self.unicode_events = []
+            self.posted = []
+
+        def CGEventCreateKeyboardEvent(self, _source, _key, down):
+            event = 101 if down else 102
+            self.keyboard_events.append(bool(down))
+            return event
+
+        def CGEventKeyboardSetUnicodeString(self, event, length, _units):
+            self.unicode_events.append((event, length))
+
+        def CGEventPost(self, tap, event):
+            self.posted.append((tap, event))
+
+    class FakeCoreFoundation:
+        def CFRelease(self, _event):
+            pass
+
+    adapter = MacRemoteAdapter()
+    adapter.supported = True
+    adapter._cg = FakeCoreGraphics()
+    adapter._cf = FakeCoreFoundation()
+    adapter.permissions = lambda: {"screen_recording": True, "accessibility": True}
+
+    await adapter.perform({"type": "text", "text": "Hello 👋"})
+
+    assert adapter._cg.keyboard_events == [True, False]
+    assert adapter._cg.unicode_events == [(101, 8), (102, 8)]
+    assert adapter._cg.posted == [(0, 101), (0, 102)]
+
+
+async def test_native_scroll_uses_pixel_units_and_both_axes():
+    class FakeCoreGraphics:
+        def __init__(self):
+            self.scroll_args = None
+            self.fields = []
+            self.posted = []
+
+        def CGEventCreateScrollWheelEvent2(self, *args):
+            self.scroll_args = args
+            return 201
+
+        def CGEventSetIntegerValueField(self, event, field, value):
+            self.fields.append((event, field, value))
+
+        def CGEventPost(self, tap, event):
+            self.posted.append((tap, event))
+
+    class FakeCoreFoundation:
+        def CFRelease(self, _event):
+            pass
+
+    adapter = MacRemoteAdapter()
+    adapter.supported = True
+    adapter._cg = FakeCoreGraphics()
+    adapter._cf = FakeCoreFoundation()
+    adapter.permissions = lambda: {"screen_recording": True, "accessibility": True}
+
+    await adapter.perform({"type": "scroll", "dx": -7, "dy": 42})
+
+    assert adapter._cg.scroll_args == (None, 0, 2, 42, -7, 0)
+    assert adapter._cg.fields == [(201, 88, 1)]
+    assert adapter._cg.posted == [(0, 201)]
 
 
 async def test_remote_pair_input_frame_and_stop(client, app):
@@ -65,6 +142,10 @@ async def test_remote_pair_input_frame_and_stop(client, app):
     assert unauthorized.status_code == 401
 
     headers = {"Authorization": f"Bearer {token}"}
+    settings = await client.post("/api/remote/permissions/accessibility", headers=headers)
+    assert settings.json() == {"opened": True, "permission_target": "/test/python3"}
+    assert adapter.settings_opened is True
+
     accepted = await client.post("/api/remote/input", headers=headers, json={"type": "tap", "x": 0.5, "y": 0.25})
     assert accepted.json() == {"accepted": True}
     assert adapter.actions == [{"type": "tap", "x": 0.5, "y": 0.25, "dx": 0, "dy": 0, "modifiers": []}]

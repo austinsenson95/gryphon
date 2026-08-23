@@ -15,13 +15,11 @@ import {
   GlassCardHeader,
   GlassCardTitle,
 } from "@/components/ui/glass-card"
-import { GhibliRobotHero } from "@/components/ui/ghibli-robot-hero"
-import { GRYPHON_HERO_BACKGROUND } from "@/components/ui/ghibli-robot-hero.demo"
 import { GryphonProvider, useGryphonEvents } from "@/lib/useGryphonEvents"
 import { cn } from "@/lib/utils"
 import type { ConnectionStatus, LLMProvider } from "@/lib/types"
 import { useState } from "react"
-import { Laptop, Smartphone } from "lucide-react"
+import { Dog, Laptop, Smartphone } from "lucide-react"
 import { RemoteCockpit } from "@/remote/RemoteCockpit"
 import { DesktopRemoteCard } from "@/remote/DesktopRemoteCard"
 
@@ -73,8 +71,8 @@ function ProviderToggle() {
         disabled={!healthOk || switchingProvider}
         onChange={(e) => switchProvider(e.target.value as LLMProvider)}
         className={cn(
-          "h-7 cursor-pointer rounded-lg border bg-slate-950/40 px-2 text-xs font-medium text-white/90 backdrop-blur-sm transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300/40",
-          switchingProvider ? "opacity-60 cursor-wait" : "hover:bg-slate-900/60",
+          "control-inset h-7 cursor-pointer rounded-lg border px-2 text-xs font-medium text-stone-200 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-stone-400/50",
+          switchingProvider ? "opacity-60 cursor-wait" : "hover:text-white",
         )}
       >
         <option value="" disabled>
@@ -93,11 +91,15 @@ function ProviderToggle() {
 function Header({ mode, onMode }: { mode: ViewMode; onMode: (mode: ViewMode) => void }) {
   const { connectionStatus } = useGryphonEvents()
   return (
-    <header className="flex flex-wrap items-center gap-3">
-      <h1 className="bg-gradient-to-r from-amber-300 via-amber-400 to-cyan-300 bg-clip-text text-2xl font-bold tracking-[0.3em] text-transparent">
-        GRYPHON
-      </h1>
-      <span className="flex items-center gap-1.5 text-xs font-medium text-white/75">
+    <header className="command-header flex flex-wrap items-center gap-3 rounded-[1.35rem] px-4 py-3 sm:px-5">
+      <div className="flex items-center gap-3">
+        <span className="brand-mark" aria-hidden><Dog className="h-5 w-5" /></span>
+        <div>
+          <h1 className="text-[15px] font-semibold tracking-[0.26em] text-stone-100">GRYPHON</h1>
+          <p className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.2em] text-stone-500">Desktop companion</p>
+        </div>
+      </div>
+      <span className="flex items-center gap-1.5 text-[11px] font-medium text-stone-400">
         <span
           data-testid="connection-dot"
           className={cn("h-2.5 w-2.5 rounded-full", DOT_STYLES[connectionStatus])}
@@ -111,9 +113,9 @@ function Header({ mode, onMode }: { mode: ViewMode; onMode: (mode: ViewMode) => 
         {DOT_LABELS[connectionStatus]}
       </span>
       <ProviderToggle />
-      <div aria-label="Portal mode" className="ml-auto flex rounded-xl border border-white/10 bg-slate-950/45 p-1 backdrop-blur-xl">
-        <button aria-pressed={mode === "desktop"} onClick={() => onMode("desktop")} className={cn("flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition", mode === "desktop" ? "bg-amber-300 text-slate-950 shadow-sm" : "text-slate-300 hover:text-white")}><Laptop className="h-3.5 w-3.5" />Desktop</button>
-        <button aria-pressed={mode === "phone"} onClick={() => onMode("phone")} className={cn("flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition", mode === "phone" ? "bg-cyan-200 text-slate-950 shadow-sm" : "text-slate-300 hover:text-white")}><Smartphone className="h-3.5 w-3.5" />Phone</button>
+      <div aria-label="Portal mode" className="mode-switch ml-auto flex p-1">
+        <button aria-pressed={mode === "desktop"} onClick={() => onMode("desktop")} className={cn("flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition", mode === "desktop" ? "mode-switch__active" : "text-stone-500 hover:text-stone-200")}><Laptop className="h-3.5 w-3.5" />Desktop</button>
+        <button aria-pressed={mode === "phone"} onClick={() => onMode("phone")} className={cn("flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition", mode === "phone" ? "mode-switch__active" : "text-stone-500 hover:text-stone-200")}><Smartphone className="h-3.5 w-3.5" />Phone</button>
       </div>
     </header>
   )
@@ -150,29 +152,6 @@ function PresenceCard() {
   )
 }
 
-function BackgroundHero() {
-  return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-      <GhibliRobotHero
-        image={GRYPHON_HERO_BACKGROUND}
-        focus="62% 58%"
-        scrim={0.9}
-        title=""
-        minHeight="100svh"
-      />
-      {/* Readability stage: a cool veil pooled behind the dashboard region,
-          fading out toward the edges so the artwork stays visible. */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(120% 90% at 50% 42%, rgba(8,18,38,0.42) 0%, rgba(8,18,38,0.22) 55%, rgba(8,18,38,0) 88%)",
-        }}
-      />
-    </div>
-  )
-}
-
 function Dashboard() {
   const { avatarState } = useGryphonEvents()
   const [mode, setMode] = useState<ViewMode>(() => {
@@ -188,9 +167,9 @@ function Dashboard() {
     window.history.replaceState({}, "", url)
   }
   return (
-    <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 overflow-x-hidden p-4 sm:p-6">
+    <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-5 overflow-x-hidden p-3 sm:p-5 lg:p-6">
       <Header mode={mode} onMode={changeMode} />
-      {mode === "phone" ? <RemoteCockpit /> : <main className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {mode === "phone" ? <RemoteCockpit /> : <main className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <PresenceCard />
         <CurrentTaskCard />
         <ChatPanel />
@@ -207,7 +186,6 @@ function Dashboard() {
 export default function App() {
   return (
     <GryphonProvider>
-      <BackgroundHero />
       <Dashboard />
     </GryphonProvider>
   )

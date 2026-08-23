@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ChevronDown,
+  ChevronUp,
   Command,
   Code2,
   Keyboard,
@@ -21,6 +23,7 @@ import {
   RefreshCw,
   RotateCcw,
   ScrollText,
+  Settings2,
   ShieldCheck,
   Sparkles,
   SquareTerminal,
@@ -32,6 +35,7 @@ import {
   getRemoteFrame,
   getRemoteStatus,
   launchRemoteApplication,
+  openRemoteAccessibilitySettings,
   pairRemote,
   sendRemoteInput,
   stopRemoteSession,
@@ -135,30 +139,105 @@ function PairingView({ status, onStatus }: { status: RemoteStatus | null; onStat
 function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: string; onStop: () => void }) {
   const [frameUrl, setFrameUrl] = useState<string | null>(null)
   const [frameError, setFrameError] = useState("")
+  const [controlError, setControlError] = useState("")
   const [text, setText] = useState("")
+  const [sendingText, setSendingText] = useState(false)
+  const [textDelivered, setTextDelivered] = useState(false)
+  const [scrollSlider, setScrollSlider] = useState(0)
+  const [surfaceFeedback, setSurfaceFeedback] = useState<{ id: number; label: string; x: number; y: number } | null>(null)
+  const [openingSettings, setOpeningSettings] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
   const [controlMode, setControlMode] = useState<"pointer" | "scroll">("pointer")
   const [frameSize, setFrameSize] = useState({ width: 16, height: 9 })
   const [launchingApp, setLaunchingApp] = useState<RemoteApplication | null>(null)
   const [immersive, setImmersive] = useState(false)
   const remoteRef = useRef<HTMLElement>(null)
-  const gesture = useRef<{ pointerId: number; x: number; y: number; moved: boolean; longPressed: boolean } | null>(null)
+  const gesture = useRef<{
+    pointerId: number
+    x: number
+    y: number
+    lastX: number
+    lastY: number
+    moved: boolean
+    longPressed: boolean
+    scrollSent: boolean
+  } | null>(null)
   const activePointers = useRef(new Map<number, { x: number; y: number }>())
   const twoFingerCenter = useRef<{ x: number; y: number } | null>(null)
   const longPressTimer = useRef<number | null>(null)
   const tapTimer = useRef<number | null>(null)
   const pointerPosition = useRef({ x: 0.5, y: 0.5 })
   const lastMoveAt = useRef(0)
+  const scrollSliderValue = useRef(0)
+  const feedbackTimer = useRef<number | null>(null)
 
-  const send = useCallback((input: RemoteInput) => sendRemoteInput(token, input).catch((reason) => setFrameError(reason instanceof Error ? reason.message : "Input failed")), [token])
+  const send = useCallback(async (input: RemoteInput) => {
+    try {
+      await sendRemoteInput(token, input)
+      setControlError("")
+      return true
+    } catch (reason) {
+      setControlError(reason instanceof Error ? reason.message : "Mac control failed")
+      return false
+    }
+  }, [token])
+
+  const clampScroll = (value: number) => {
+    const rounded = Math.max(-100, Math.min(100, Math.round(value)))
+    return Object.is(rounded, -0) ? 0 : rounded
+  }
+
+  const moveScrollSlider = (nextValue: number) => {
+    const delta = nextValue - scrollSliderValue.current
+    scrollSliderValue.current = nextValue
+    setScrollSlider(nextValue)
+    if (delta) void send({ type: "scroll", dx: 0, dy: clampScroll(delta * 2) })
+  }
+
+  const releaseScrollSlider = () => {
+    scrollSliderValue.current = 0
+    setScrollSlider(0)
+  }
+
+  const showSurfaceFeedback = (label: string, point: { x: number; y: number }) => {
+    if (feedbackTimer.current !== null) window.clearTimeout(feedbackTimer.current)
+    setSurfaceFeedback({ id: Date.now(), label, ...point })
+    feedbackTimer.current = window.setTimeout(() => setSurfaceFeedback(null), 520)
+  }
+
+  const submitText = async () => {
+    if (!text || sendingText) return
+    const payload = text
+    setSendingText(true)
+    setTextDelivered(false)
+    const delivered = await send({ type: "text", text: payload })
+    if (delivered) {
+      setText("")
+      setTextDelivered(true)
+      window.setTimeout(() => setTextDelivered(false), 1400)
+    }
+    setSendingText(false)
+  }
+
+  const openAccessibility = async () => {
+    setOpeningSettings(true)
+    try {
+      await openRemoteAccessibilitySettings(token)
+      setControlError("Accessibility Settings opened on your Mac. Enable the listed Python runtime, then restart Gryphon.")
+    } catch (reason) {
+      setControlError(reason instanceof Error ? reason.message : "Could not open Accessibility Settings on the Mac.")
+    } finally {
+      setOpeningSettings(false)
+    }
+  }
 
   const launchApp = async (app: RemoteApplication) => {
     setLaunchingApp(app)
-    setFrameError("")
+    setControlError("")
     try {
       await launchRemoteApplication(token, app)
     } catch (reason) {
-      setFrameError(reason instanceof Error ? reason.message : "Could not open the application.")
+      setControlError(reason instanceof Error ? reason.message : "Could not open the application.")
     } finally {
       setLaunchingApp(null)
     }
@@ -194,6 +273,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
       document.removeEventListener("fullscreenchange", syncFullscreen)
       if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current)
       if (tapTimer.current !== null) window.clearTimeout(tapTimer.current)
+      if (feedbackTimer.current !== null) window.clearTimeout(feedbackTimer.current)
     }
   }, [])
 
@@ -239,6 +319,22 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
 
   const pointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (activePointers.current.has(event.pointerId)) activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    const active = gesture.current
+    if (active && active.pointerId === event.pointerId && controlMode === "scroll") {
+      event.preventDefault()
+      const dx = event.clientX - active.lastX
+      const dy = event.clientY - active.lastY
+      active.lastX = event.clientX
+      active.lastY = event.clientY
+      if (Math.abs(event.clientX - active.x) + Math.abs(event.clientY - active.y) > 3) active.moved = true
+      const scrollX = clampScroll(dx * 2)
+      const scrollY = clampScroll(dy * 2)
+      if (scrollX || scrollY) {
+        active.scrollSent = true
+        void send({ type: "scroll", dx: scrollX, dy: scrollY })
+      }
+      return
+    }
     if (activePointers.current.size >= 2 && controlMode === "pointer") {
       clearLongPress()
       if (gesture.current) gesture.current.moved = true
@@ -250,13 +346,12 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
       const previous = twoFingerCenter.current
       twoFingerCenter.current = center
       if (previous) {
-        const dx = Math.round(-(center.x - previous.x) / 3)
-        const dy = Math.round(-(center.y - previous.y) / 3)
+        const dx = clampScroll(-(center.x - previous.x) * 2)
+        const dy = clampScroll(-(center.y - previous.y) * 2)
         if (dx || dy) void send({ type: "scroll", dx, dy })
       }
       return
     }
-    const active = gesture.current
     if (!active || active.pointerId !== event.pointerId || controlMode !== "pointer") return
     const distance = Math.abs(event.clientX - active.x) + Math.abs(event.clientY - active.y)
     if (distance > 6) { active.moved = true; clearLongPress() }
@@ -277,10 +372,12 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
     const start = gesture.current
     gesture.current = null
     if (!start || wasMultiTouch || start.pointerId !== event.pointerId || start.longPressed) return
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
     if (controlMode === "scroll") {
-      void send({ type: "scroll", dx: Math.round(-dx / 8) || 0, dy: Math.round(-dy / 8) || 0 })
+      const finalDx = event.clientX - (start.scrollSent ? start.lastX : start.x)
+      const finalDy = event.clientY - (start.scrollSent ? start.lastY : start.y)
+      const scrollX = clampScroll(finalDx * 2)
+      const scrollY = clampScroll(finalDy * 2)
+      if (scrollX || scrollY) void send({ type: "scroll", dx: scrollX, dy: scrollY })
       return
     }
     const point = normalizedPoint(event)
@@ -289,10 +386,12 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
       if (tapTimer.current !== null) {
         window.clearTimeout(tapTimer.current)
         tapTimer.current = null
+        showSurfaceFeedback("Double-click", point)
         void send({ type: "double_tap", ...point })
       } else {
         tapTimer.current = window.setTimeout(() => {
           tapTimer.current = null
+          showSurfaceFeedback("Click", point)
           void send({ type: "tap", ...point })
         }, 240)
       }
@@ -312,7 +411,16 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
       }
       return
     }
-    gesture.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false, longPressed: false }
+    gesture.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      moved: false,
+      longPressed: false,
+      scrollSent: false,
+    }
     if (controlMode === "pointer") {
       const point = normalizedPoint(event)
       longPressTimer.current = window.setTimeout(() => {
@@ -343,7 +451,14 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
           <Button variant="ghost" size="sm" className="text-red-200 hover:text-red-100" onClick={onStop}><Power className="mr-1.5 h-4 w-4" />Stop</Button>
         </div>
       </div>
-      {!status.permissions.accessibility && <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">Mirroring works, but Mac control is blocked. On the Mac, enable Accessibility for the app running Gryphon in System Settings → Privacy &amp; Security.</p>}
+      {!status.permissions.accessibility && <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+        <p>Mirroring works, but macOS is discarding scroll and keyboard events. Enable Accessibility for Gryphon’s Python runtime.</p>
+        {status.permission_target && <p className="mt-1 break-all font-mono text-[10px] text-amber-100/70">{status.permission_target}</p>}
+        <Button variant="outline" size="sm" className="mt-2" disabled={openingSettings} onClick={() => void openAccessibility()}>
+          {openingSettings ? <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Settings2 className="mr-1.5 h-3.5 w-3.5" />}
+          Open settings on Mac
+        </Button>
+      </div>}
 
       <div className="remote-rotate-hint">
         <RotateCcw className="h-10 w-10 text-cyan-200" />
@@ -364,12 +479,46 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
             {frameUrl ? <img src={frameUrl} alt={`Live screen from ${status.device_name}`} draggable={false} onLoad={(event) => setFrameSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><RefreshCw className="h-7 w-7 animate-spin text-cyan-200/60" /></div>}
             <div
               aria-label="Mac trackpad surface"
+              aria-description="Drag to move the pointer, tap to click, and double-tap to double-click"
               className={cn("absolute inset-0", controlMode === "pointer" ? "cursor-crosshair" : "cursor-ns-resize")}
               onPointerDown={pointerDown}
               onPointerMove={pointerMove}
               onPointerUp={pointerUp}
               onPointerCancel={cancelPointer}
+              onWheel={(event) => {
+                event.preventDefault()
+                void send({ type: "scroll", dx: clampScroll(-event.deltaX), dy: clampScroll(-event.deltaY) })
+              }}
             />
+            {surfaceFeedback && <span
+              key={surfaceFeedback.id}
+              role="status"
+              className="remote-tap-feedback"
+              style={{ left: `${surfaceFeedback.x * 100}%`, top: `${surfaceFeedback.y * 100}%` }}
+            >
+              <span className="remote-tap-feedback__ring" />
+              <span className="remote-tap-feedback__label">{surfaceFeedback.label}</span>
+            </span>}
+            {controlMode === "pointer" && <span className="remote-pointer-hint">Tap to click · Double-tap to open</span>}
+            <div className="remote-scroll-tab" aria-label="Window scroll control">
+              <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+              <input
+                aria-label="Scroll active Mac window"
+                className="remote-scroll-slider"
+                type="range"
+                min={-100}
+                max={100}
+                step={2}
+                value={scrollSlider}
+                onChange={(event) => moveScrollSlider(Number(event.currentTarget.value))}
+                onPointerUp={releaseScrollSlider}
+                onPointerCancel={releaseScrollSlider}
+                onTouchEnd={releaseScrollSlider}
+                onBlur={releaseScrollSlider}
+              />
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Scroll</span>
+            </div>
             <span className="remote-corner remote-corner--tl" /><span className="remote-corner remote-corner--tr" /><span className="remote-corner remote-corner--bl" /><span className="remote-corner remote-corner--br" />
           </div>
           <div className="remote-click-row mt-2 grid grid-cols-3 gap-2">
@@ -395,9 +544,24 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
           <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
               <Button variant="ghost" size="icon" aria-label="Toggle keyboard controls" onClick={() => setControlsOpen((value) => !value)}><Keyboard className="h-5 w-5" /></Button>
-              <Input value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && text) { void send({ type: "text", text }); setText("") } }} placeholder="Type on your Mac…" />
-              <Button disabled={!text} onClick={() => { void send({ type: "text", text }); setText("") }}>Send</Button>
+              <Input
+                value={text}
+                inputMode="text"
+                enterKeyHint="send"
+                autoCapitalize="sentences"
+                spellCheck
+                onChange={(event) => { setText(event.target.value); setTextDelivered(false) }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && text) {
+                    event.preventDefault()
+                    void submitText()
+                  }
+                }}
+                placeholder="Type into the selected Mac field…"
+              />
+              <Button disabled={!text || sendingText} onClick={() => void submitText()}>{sendingText ? "Sending…" : "Send"}</Button>
             </div>
+            {textDelivered && <p role="status" className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[.12em] text-emerald-300">Text sent to Mac</p>}
             {controlsOpen && <div className="mt-3 flex flex-wrap items-center justify-center gap-2 border-t border-white/10 pt-3">
               <Button variant="outline" size="sm" onClick={() => void send({ type: "key", key: "escape" })}>esc</Button>
               <Button variant="outline" size="icon" aria-label="Command Enter" onClick={() => void send({ type: "key", key: "enter", modifiers: ["command"] })}><Command className="h-4 w-4" /></Button>
@@ -411,7 +575,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
           <p className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-center text-[10px] leading-4 tracking-[.06em] text-slate-400">Tap click · Double-tap open · Hold right-click · Two-finger scroll</p>
         </div>
       </div>
-      {frameError && <p role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">{frameError}</p>}
+      {(controlError || frameError) && <p role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">{controlError || frameError}</p>}
     </section>
   )
 }

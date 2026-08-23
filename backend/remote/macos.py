@@ -82,6 +82,14 @@ class MacRemoteAdapter:
         self._cg.CGEventSetIntegerValueField.argtypes = [
             ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int64
         ]
+        # Use Apple's fixed-signature variant. Calling the older variadic API
+        # through ctypes is unreliable on Apple Silicon and can create scroll
+        # events that post successfully but are ignored by applications.
+        self._cg.CGEventCreateScrollWheelEvent2.argtypes = [
+            ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32,
+            ctypes.c_int32, ctypes.c_int32, ctypes.c_int32,
+        ]
+        self._cg.CGEventCreateScrollWheelEvent2.restype = ctypes.c_void_p
         self._cf.CFRelease.argtypes = [ctypes.c_void_p]
 
     def permissions(self) -> dict[str, bool]:
@@ -97,6 +105,28 @@ class MacRemoteAdapter:
             }
         except (AttributeError, OSError):
             return {"screen_recording": False, "accessibility": False}
+
+    def permission_target(self) -> str:
+        """Return the exact executable identity macOS must trust."""
+        return str(Path(sys.executable).resolve())
+
+    async def open_accessibility_settings(self) -> str:
+        """Open the only supported UI for granting macOS Accessibility."""
+        if not self.supported:
+            raise RuntimeError("Accessibility settings are only available on macOS.")
+        open_bin = shutil.which("open")
+        if not open_bin:
+            raise RuntimeError("Could not open macOS System Settings.")
+        process = await asyncio.create_subprocess_exec(
+            open_bin,
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await asyncio.wait_for(process.communicate(), timeout=8)
+        if process.returncode != 0:
+            raise RuntimeError(stderr.decode(errors="replace").strip() or "Could not open Accessibility settings.")
+        return self.permission_target()
 
     def display_bounds(self) -> tuple[float, float, float, float]:
         self._load_frameworks()
@@ -146,6 +176,8 @@ class MacRemoteAdapter:
             return destination.read_bytes()
 
     def _post(self, event: int) -> None:
+        if not event:
+            raise RuntimeError("macOS could not create a remote input event.")
         self._cg.CGEventPost(0, event)
         self._cf.CFRelease(event)
 
@@ -188,14 +220,18 @@ class MacRemoteAdapter:
                 self._mouse_event(4, point, 1)
             return
         if kind == "scroll":
-            self._cg.CGEventCreateScrollWheelEvent.argtypes = [
-                ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32,
-                ctypes.c_int32, ctypes.c_int32,
-            ]
-            self._cg.CGEventCreateScrollWheelEvent.restype = ctypes.c_void_p
-            event = self._cg.CGEventCreateScrollWheelEvent(
-                None, 1, 2, int(action.get("dy", 0)), int(action.get("dx", 0))
+            dx = int(action.get("dx", 0))
+            dy = int(action.get("dy", 0))
+            if not dx and not dy:
+                return
+            event = self._cg.CGEventCreateScrollWheelEvent2(
+                # Pixel units track an iPhone gesture much more closely than
+                # line units, which are app-dependent and can appear inert.
+                None, 0, 2, dy, dx, 0
             )
+            # kCGScrollWheelEventIsContinuous: tell macOS and Chromium-based
+            # apps that these deltas came from a trackpad-like pixel gesture.
+            self._cg.CGEventSetIntegerValueField(event, 88, 1)
             self._post(event)
             return
         if kind == "key":
@@ -214,9 +250,14 @@ class MacRemoteAdapter:
                 chunk = action["text"][chunk_start:chunk_start + 20]
                 encoded = chunk.encode("utf-16-le")
                 units = (ctypes.c_uint16 * (len(encoded) // 2)).from_buffer_copy(encoded)
-                event = self._cg.CGEventCreateKeyboardEvent(None, 0, True)
-                self._cg.CGEventKeyboardSetUnicodeString(event, len(units), units)
-                self._post(event)
+                # A complete key-down/key-up pair is required by a number of
+                # native and Chromium text fields. Posting only key-down made
+                # phone text silently disappear in those applications.
+                for down in (True, False):
+                    event = self._cg.CGEventCreateKeyboardEvent(None, 0, down)
+                    self._cg.CGEventKeyboardSetUnicodeString(event, len(units), units)
+                    self._post(event)
+                await asyncio.sleep(0)
             return
         raise ValueError(f"Unsupported remote action: {kind}")
 

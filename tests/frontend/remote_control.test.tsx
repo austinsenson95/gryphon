@@ -70,7 +70,7 @@ describe("Phone remote controls", () => {
     fireEvent.pointerUp(surface, { clientX: 160, clientY: 120, pointerId: 2 })
     await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
       "paired-token",
-      { type: "scroll", dx: 0, dy: -10 },
+      { type: "scroll", dx: 0, dy: 100 },
     ))
 
     await user.click(screen.getByRole("button", { name: "Open Hermes" }))
@@ -105,13 +105,92 @@ describe("Phone remote controls", () => {
       "paired-token",
       expect.objectContaining({ type: "double_tap", x: 0.25, y: expect.any(Number) }),
     ))
+    expect(screen.getByRole("status")).toHaveTextContent("Double-click")
 
     fireEvent.pointerDown(surface, { clientX: 100, clientY: 80, pointerId: 3 })
     fireEvent.pointerDown(surface, { clientX: 200, clientY: 80, pointerId: 4 })
     fireEvent.pointerMove(surface, { clientX: 100, clientY: 110, pointerId: 3 })
     await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
       "paired-token",
-      expect.objectContaining({ type: "scroll", dy: -5 }),
+      expect.objectContaining({ type: "scroll", dy: -30 }),
     ))
+  })
+
+  it("clicks directly where the phone user taps the mirrored screen", async () => {
+    render(<RemoteCockpit />)
+    const surface = await screen.findByLabelText("Mac trackpad surface")
+
+    fireEvent.pointerDown(surface, { clientX: 240, clientY: 90, pointerId: 8 })
+    fireEvent.pointerUp(surface, { clientX: 240, clientY: 90, pointerId: 8 })
+
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "tap", x: 0.75, y: 0.5 },
+    ))
+    expect(screen.getByRole("status")).toHaveTextContent("Click")
+  })
+
+  it("scrolls continuously during a one-finger swipe in Scroll mode", async () => {
+    const user = userEvent.setup()
+    render(<RemoteCockpit />)
+    const surface = await screen.findByLabelText("Mac trackpad surface")
+
+    await user.click(screen.getByRole("button", { name: "Scroll", exact: true }))
+    fireEvent.pointerDown(surface, { clientX: 160, clientY: 130, pointerId: 9 })
+    fireEvent.pointerMove(surface, { clientX: 160, clientY: 100, pointerId: 9 })
+
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "scroll", dx: 0, dy: -60 },
+    ))
+  })
+
+  it("scrolls the Mac with the spring-centered dashboard slider", async () => {
+    render(<RemoteCockpit />)
+    const slider = await screen.findByRole("slider", { name: "Scroll active Mac window" })
+
+    fireEvent.change(slider, { target: { value: "24" } })
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "scroll", dx: 0, dy: 48 },
+    ))
+
+    fireEvent.change(slider, { target: { value: "10" } })
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "scroll", dx: 0, dy: -28 },
+    ))
+
+    fireEvent.pointerUp(slider)
+    expect(slider).toHaveValue("0")
+  })
+
+  it("sends phone text and confirms delivery before clearing the field", async () => {
+    const user = userEvent.setup()
+    render(<RemoteCockpit />)
+
+    const input = await screen.findByPlaceholderText("Type into the selected Mac field…")
+    await user.type(input, "Hello from iPhone")
+    await user.click(screen.getByRole("button", { name: "Send" }))
+
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "text", text: "Hello from iPhone" },
+    ))
+    expect(await screen.findByRole("status")).toHaveTextContent("Text sent to Mac")
+    expect(input).toHaveValue("")
+  })
+
+  it("keeps unsent phone text visible when Mac input fails", async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendRemoteInput).mockRejectedValueOnce(new Error("Accessibility permission is missing"))
+    render(<RemoteCockpit />)
+
+    const input = await screen.findByPlaceholderText("Type into the selected Mac field…")
+    await user.type(input, "Do not lose this")
+    await user.click(screen.getByRole("button", { name: "Send" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Accessibility permission is missing")
+    expect(input).toHaveValue("Do not lose this")
   })
 })

@@ -137,6 +137,24 @@ async def remote_input(
     return {"accepted": True}
 
 
+@router.post("/permissions/accessibility")
+async def open_remote_accessibility_settings(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> dict:
+    """Open the correct Mac settings pane from either dashboard."""
+    try:
+        if not _is_lan_request(request):
+            state.remote.authenticate(_bearer(authorization))
+        target = await state.remote.adapter.open_accessibility_settings()
+    except PermissionError as exc:
+        raise HTTPException(401, detail={"code": "REMOTE_UNAUTHORIZED", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(400, detail={"code": "SETTINGS_UNAVAILABLE", "message": str(exc)}) from exc
+    return {"opened": True, "permission_target": target}
+
+
 @router.post("/app")
 async def remote_application(
     body: AppRequest,

@@ -163,8 +163,8 @@ export function AvatarRenderer({ state, size = 96 }: AvatarRendererProps) {
           aria-hidden
           className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900"
         >
-          {/* Graceful emoji fallback while /avatar/idle/gryphon.png is missing */}
-          <span style={{ fontSize: size * 0.5 }}>🦅</span>
+          {/* Graceful companion fallback while the portrait is unavailable. */}
+          <span style={{ fontSize: size * 0.5 }}>🐕</span>
         </div>
       ) : (
         <img
