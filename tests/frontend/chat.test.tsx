@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ChatPanel } from "@/dashboard/ChatPanel"
@@ -52,5 +53,14 @@ describe("ChatPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /send message/i }))
 
     expect(await screen.findByText(/agent exploded/)).toBeInTheDocument()
+  })
+
+  it("puts a quick action into the chat composer", async () => {
+    const user = userEvent.setup()
+    render(<ChatPanel />)
+
+    await user.click(screen.getByRole("button", { name: "Run workflow" }))
+
+    expect(screen.getByTestId("chat-input")).toHaveValue("Run a workflow")
   })
 })

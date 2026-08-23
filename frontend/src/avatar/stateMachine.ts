@@ -14,7 +14,6 @@ export const SUCCESS_IDLE_MS = 2_500
 export const ERROR_IDLE_MS = 3_000
 
 const EVENT_TO_STATE: Partial<Record<EventType, AvatarState>> = {
-  MESSAGE_RECEIVED: "LISTENING",
   AGENT_STARTED: "THINKING",
   AGENT_THINKING: "THINKING",
   TOOL_CALL_STARTED: "WORKING",
@@ -44,7 +43,7 @@ export function nextAvatarState(event: { type: EventType }): AvatarState | null 
 }
 
 export const AVATAR_STATE_LABELS: Record<AvatarState, string> = {
-  IDLE: "Idle",
+  IDLE: "Ready",
   LISTENING: "Listening",
   THINKING: "Thinking",
   WORKING: "Working",
@@ -55,7 +54,7 @@ export const AVATAR_STATE_LABELS: Record<AvatarState, string> = {
 
 export const AVATAR_STATE_DESCRIPTIONS: Record<AvatarState, string> = {
   IDLE: "Ready for your next instruction.",
-  LISTENING: "Received your message.",
+  LISTENING: "Listening for your voice.",
   THINKING: "Reasoning about the next step.",
   WORKING: "Running tools on your behalf.",
   SUCCESS: "Task completed successfully.",

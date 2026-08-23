@@ -579,6 +579,20 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
               <Button variant="outline" size="sm" onClick={() => void send({ type: "key", key: "enter" })}>return</Button>
             </div>}
           </div>
+          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-white">Focused window</p>
+              <span className="text-[10px] font-medium text-slate-300">Display controls</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="sm" aria-label="Put focused window in full screen" onClick={() => void send({ type: "enter_fullscreen" })}>
+                <Maximize2 className="mr-1.5 h-4 w-4" />Full screen
+              </Button>
+              <Button variant="outline" size="sm" aria-label="Take focused window out of full screen" onClick={() => void send({ type: "exit_fullscreen" })}>
+                <Minimize2 className="mr-1.5 h-4 w-4" />Exit full screen
+              </Button>
+            </div>
+          </div>
           <p className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-center text-[10px] leading-4 tracking-[.06em] text-slate-400">Tap click · Double-tap open · Hold right-click · Two-finger scroll</p>
         </div>
       </div>

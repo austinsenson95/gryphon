@@ -1,5 +1,8 @@
 # Griffin — Phase 1
 
+Desktop/Tauri development and packaging are documented in
+[`docs/tauri-architecture.md`](docs/tauri-architecture.md).
+
 A **local-first personal AI assistant**. Your Mac (or any machine) is the server; the web dashboard is Griffin's world — a draggable avatar, live activity feed, chat with **voice input**, task state, and tool activity, all streaming over WebSocket.
 
 Phase 1 connects the dashboard to a real agentic execution loop:

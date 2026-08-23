@@ -111,6 +111,7 @@ export type RemoteInput =
   | { type: "scroll"; dx?: number; dy: number }
   | { type: "text"; text: string }
   | { type: "key"; key: string; modifiers?: string[] }
+  | { type: "enter_fullscreen" | "exit_fullscreen" }
 
 export type RemoteApplication = "hermes" | "spotify" | "notes" | "vscode" | "terminal"
 

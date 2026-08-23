@@ -19,7 +19,10 @@ class PairRequest(BaseModel):
 
 
 class InputRequest(BaseModel):
-    type: Literal["tap", "double_tap", "secondary_tap", "move", "scroll", "text", "key"]
+    type: Literal[
+        "tap", "double_tap", "secondary_tap", "move", "scroll", "text", "key",
+        "enter_fullscreen", "exit_fullscreen",
+    ]
     x: float | None = Field(default=None, ge=0, le=1)
     y: float | None = Field(default=None, ge=0, le=1)
     dx: int = Field(default=0, ge=-100, le=100)

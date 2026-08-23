@@ -8,7 +8,9 @@ describe("App", () => {
   it("renders the voice-first Griffin canvas", () => {
     render(<App />)
 
-    expect(screen.getByText("What would you like to do?")).toBeInTheDocument()
+    expect(screen.getByText("What would you like to accomplish?")).toBeInTheDocument()
+    expect(screen.getByText("System status")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Plan my day" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Griffin account" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Desktop view" })).toHaveAttribute("aria-pressed", "true")
     expect(screen.getByTestId("mic-button")).toBeInTheDocument()
@@ -26,6 +28,6 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Phone" })).toHaveAttribute("aria-pressed", "true")
 
     await user.click(screen.getByRole("button", { name: "Desktop view" }))
-    expect(screen.getByText("What would you like to do?")).toBeInTheDocument()
+    expect(screen.getByText("What would you like to accomplish?")).toBeInTheDocument()
   })
 })

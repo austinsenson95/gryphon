@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Minimal capabilities for Griffin's bundled dashboard only.",
+  "windows": ["main"],
+  "platforms": ["macOS"],
+  "permissions": [
+    "core:event:default",
+    "core:window:default",
+    "allow-runtime-status",
+    "allow-restart-backend",
+    "allow-get-platform-info",
+    "allow-show-notification",
+    "allow-open-url"
+  ]
+}

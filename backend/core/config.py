@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     environment: str = "development"
     host: str = "0.0.0.0"
     port: int = 8000
+    griffin_runtime_mode: str = "browser"
+    griffin_log_level: str = "INFO"
 
     # LLM
     llm_provider: str = "ollama"  # "ollama" | "xai" | "openai_compatible" (mock fallback)

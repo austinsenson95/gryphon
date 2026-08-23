@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
-import { FileText, Keyboard, Mic, MicOff, Paperclip, SendHorizontal } from "lucide-react"
+import { CalendarDays, FileText, FolderOpen, Keyboard, Mic, MicOff, Paperclip, Play, SendHorizontal } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { useGriffinEvents } from "@/lib/useGriffinEvents"
 import { sendChat, sendVoice } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/lib/types"
+import { GriffinPresence } from "@/dashboard/GriffinPresence"
 
 function newId(): string { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `msg_${Date.now()}_${Math.random().toString(36).slice(2)}` }
 type VoiceState = "idle" | "listening" | "transcribing"
 
 export function ChatPanel() {
-  const { sessionId, setSessionId } = useGriffinEvents()
+  const { sessionId, setSessionId, avatarState } = useGriffinEvents()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
@@ -51,11 +52,13 @@ export function ChatPanel() {
     } catch { setVoiceState("idle") }
   }
   const thinking = sending || voiceState === "transcribing"
+  const presenceState = voiceState === "listening" ? "LISTENING" : avatarState === "LISTENING" ? "IDLE" : avatarState
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => { if (event.key === "Enter") { event.preventDefault(); void submit() } }
+  const useQuickAction = (prompt: string) => { setDraft(prompt); setTextInputOpen(true) }
   return <main className="griffin-conversation">
     <div className={cn("griffin-activity-line", (thinking || messages.some((message) => message.role === "assistant")) && "is-visible")} aria-hidden><span /></div>
     <section ref={scrollRef} className="griffin-message-canvas" aria-label="Chat messages">
-      {messages.length === 0 && !thinking && <p className="griffin-greeting">What would you like to do?</p>}
+      {messages.length === 0 && !thinking && <div className="griffin-welcome"><div><p className="griffin-greeting">Good evening.</p><p className="griffin-welcome__copy">What would you like to accomplish?</p></div><GriffinPresence state={presenceState} /></div>}
       {thinking && <div className="griffin-thinking" aria-label="Griffin is thinking" />}
       {messages.map((message) => <div key={message.id} className={cn("griffin-message", message.role === "user" ? "griffin-message--user" : "griffin-message--assistant")}>{message.content}</div>)}
     </section>
@@ -66,6 +69,7 @@ export function ChatPanel() {
         <button type="button" className="griffin-fab griffin-fab--files" aria-label="Show all files" onClick={() => setMenuOpen(false)}><FileText /><span>Files</span></button>
       </div>}
       <div className={cn("griffin-text-entry", !textInputOpen && "griffin-text-entry--hidden")}><Input ref={inputRef} data-testid="chat-input" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} placeholder="Message Griffin" aria-label="Message Griffin" disabled={thinking} /><button type="button" aria-label="Send message" onClick={() => void submit()} disabled={!draft.trim() || thinking}><SendHorizontal /></button></div>
+      {!textInputOpen && !thinking && <div className="griffin-quick-actions" aria-label="Quick actions"><button type="button" onClick={() => useQuickAction("Plan my day")}> <CalendarDays aria-hidden />Plan my day</button><button type="button" onClick={() => useQuickAction("Open my project")}> <FolderOpen aria-hidden />Open project</button><button type="button" onClick={() => useQuickAction("Run a workflow")}> <Play aria-hidden />Run workflow</button></div>}
       <button type="button" className={cn("griffin-mic", voiceState === "listening" && "is-listening")} aria-label={voiceState === "listening" ? "Stop recording" : "Start voice input"} data-testid="mic-button" onClick={() => { if (!textInputOpen) setMenuOpen((open) => !open); else void toggleRecording() }} disabled={thinking}>{voiceState === "listening" ? <MicOff /> : <Mic />}</button>
     </div>
   </main>

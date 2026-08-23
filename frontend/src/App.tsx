@@ -9,6 +9,8 @@ import { DesktopRemoteCard } from "@/remote/DesktopRemoteCard"
 import { CurrentTaskCard } from "@/tasks/CurrentTaskCard"
 import { ToolActivityCard } from "@/tasks/ToolActivityCard"
 import { ActivityTimeline } from "@/activity/ActivityTimeline"
+import { ConnectedDevicesCard } from "@/dashboard/ConnectedDevicesCard"
+import { SystemStatusCard } from "@/dashboard/SystemStatusCard"
 import { cn } from "@/lib/utils"
 
 type ViewMode = "desktop" | "phone"
@@ -40,13 +42,13 @@ function Dashboard() {
     else url.searchParams.delete("mode")
     window.history.replaceState({}, "", url)
   }
-  const [theme, setTheme] = useState<"light" | "dark">(() => window.localStorage.getItem("griffin.theme") === "dark" ? "dark" : "light")
+  const [theme, setTheme] = useState<"light" | "dark">(() => window.localStorage.getItem("griffin.theme") === "light" ? "light" : "dark")
   const toggleTheme = () => setTheme((current) => {
     const next = current === "light" ? "dark" : "light"
     window.localStorage.setItem("griffin.theme", next)
     return next
   })
-  return <div className="griffin-app" data-theme={theme}><Header mode={mode} onMode={changeMode} theme={theme} onTheme={toggleTheme} />{mode === "phone" ? <RemoteCockpit /> : <main className="griffin-workspace"><ChatPanel /><aside className="griffin-dashboard" aria-label="Mac controls"><DesktopRemoteCard /><CurrentTaskCard /><ToolActivityCard /><ActivityTimeline /></aside></main>}<NotificationStack /></div>
+  return <div className="griffin-app" data-mode={mode} data-theme={theme}><Header mode={mode} onMode={changeMode} theme={theme} onTheme={toggleTheme} />{mode === "phone" ? <RemoteCockpit /> : <main className="griffin-workspace"><ChatPanel /><aside className="griffin-dashboard" aria-label="Mac controls"><SystemStatusCard /><CurrentTaskCard /><ToolActivityCard /><ActivityTimeline /><ConnectedDevicesCard /><DesktopRemoteCard /></aside></main>}<NotificationStack /></div>
 }
 
 export default function App() { return <GriffinProvider><Dashboard /></GriffinProvider> }

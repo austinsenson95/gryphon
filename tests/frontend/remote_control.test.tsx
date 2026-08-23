@@ -93,6 +93,17 @@ describe("Phone remote controls", () => {
     expect(surface.closest("section")).toHaveClass("remote-immersive")
   })
 
+  it("changes the focused Mac window's full screen state", async () => {
+    const user = userEvent.setup()
+    render(<RemoteCockpit />)
+
+    await user.click(await screen.findByRole("button", { name: "Put focused window in full screen" }))
+    await user.click(screen.getByRole("button", { name: "Take focused window out of full screen" }))
+
+    expect(sendRemoteInput).toHaveBeenCalledWith("paired-token", { type: "enter_fullscreen" })
+    expect(sendRemoteInput).toHaveBeenCalledWith("paired-token", { type: "exit_fullscreen" })
+  })
+
   it("supports double-tap and two-finger scroll gestures", async () => {
     render(<RemoteCockpit />)
     const surface = await screen.findByLabelText("Mac trackpad surface")

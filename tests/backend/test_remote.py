@@ -150,6 +150,15 @@ async def test_remote_pair_input_frame_and_stop(client, app):
     assert accepted.json() == {"accepted": True}
     assert adapter.actions == [{"type": "tap", "x": 0.5, "y": 0.25, "dx": 0, "dy": 0, "modifiers": []}]
 
+    entered_fullscreen = await client.post("/api/remote/input", headers=headers, json={"type": "enter_fullscreen"})
+    exited_fullscreen = await client.post("/api/remote/input", headers=headers, json={"type": "exit_fullscreen"})
+    assert entered_fullscreen.json() == {"accepted": True}
+    assert exited_fullscreen.json() == {"accepted": True}
+    assert adapter.actions[-2:] == [
+        {"type": "enter_fullscreen", "dx": 0, "dy": 0, "modifiers": []},
+        {"type": "exit_fullscreen", "dx": 0, "dy": 0, "modifiers": []},
+    ]
+
     frame = await client.get("/api/remote/frame", headers=headers)
     assert frame.status_code == 200
     assert frame.content == b"fake-jpeg"

@@ -4,7 +4,6 @@ import { nextAvatarState } from "@/avatar/stateMachine"
 
 describe("avatar state machine (SPEC §3 mapping)", () => {
   it.each([
-    ["MESSAGE_RECEIVED", "LISTENING"],
     ["AGENT_STARTED", "THINKING"],
     ["AGENT_THINKING", "THINKING"],
     ["TOOL_CALL_STARTED", "WORKING"],
@@ -22,7 +21,7 @@ describe("avatar state machine (SPEC §3 mapping)", () => {
     expect(nextAvatarState({ type })).toBe(expected)
   })
 
-  it.each(["SESSION_CREATED", "TASK_STARTED"] as const)(
+  it.each(["SESSION_CREATED", "MESSAGE_RECEIVED", "TASK_STARTED"] as const)(
     "%s does not change the avatar state",
     (type) => {
       expect(nextAvatarState({ type })).toBeNull()

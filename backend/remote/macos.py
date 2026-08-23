@@ -259,7 +259,34 @@ class MacRemoteAdapter:
                     self._post(event)
                 await asyncio.sleep(0)
             return
+        if kind in {"enter_fullscreen", "exit_fullscreen"}:
+            await self._set_focused_window_fullscreen(enabled=kind == "enter_fullscreen")
+            return
         raise ValueError(f"Unsupported remote action: {kind}")
+
+    async def _set_focused_window_fullscreen(self, *, enabled: bool) -> None:
+        """Set the focused app's front window fullscreen state through Accessibility."""
+        osascript_bin = shutil.which("osascript")
+        if not osascript_bin:
+            raise RuntimeError("AppleScript is unavailable, so Griffin cannot change window fullscreen mode.")
+        state = "true" if enabled else "false"
+        script = (
+            'tell application "System Events"\n'
+            '  set focusedApp to first application process whose frontmost is true\n'
+            f'  set value of attribute "AXFullScreen" of window 1 of focusedApp to {state}\n'
+            'end tell'
+        )
+        process = await asyncio.create_subprocess_exec(
+            osascript_bin,
+            "-e",
+            script,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await asyncio.wait_for(process.communicate(), timeout=8)
+        if process.returncode != 0:
+            detail = stderr.decode(errors="replace").strip()
+            raise RuntimeError(detail or "The focused window does not support fullscreen mode.")
 
     async def open_application(self, names: tuple[str, ...]) -> str:
         if not self.supported:

@@ -11,6 +11,7 @@ import type {
   RemoteStatus,
   RemoteApplication,
 } from "@/lib/types"
+import { isTauriRuntime } from "@/lib/desktop"
 
 /**
  * LAN-friendly base URL: same host as the page, backend port 8000,
@@ -18,7 +19,9 @@ import type {
  */
 export const API_BASE =
   import.meta.env.VITE_API_BASE ??
-  `${location.protocol}//${location.hostname}:8000`
+  (isTauriRuntime()
+    ? "http://127.0.0.1:8000"
+    : `${location.protocol}//${location.hostname}:8000`)
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {

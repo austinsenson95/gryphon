@@ -17,6 +17,12 @@ import {
 } from "@/avatar/stateMachine"
 import { getBrowserStatus, getEvents, getHealth, getProviderInfo, setProvider } from "@/lib/api"
 import { createGriffinSocket } from "@/lib/ws"
+import {
+  getDesktopRuntime,
+  listenForDesktopRuntime,
+  restartDesktopBackend,
+  type DesktopRuntimeSnapshot,
+} from "@/lib/desktop"
 import type {
   AppNotification,
   BrowserStatus,
@@ -44,9 +50,11 @@ export interface GriffinState {
   browserStatus: BrowserStatus | null
   notifications: AppNotification[]
   sessionId: string | null
+  desktopRuntime: DesktopRuntimeSnapshot | null
   setSessionId: (id: string) => void
   dismissNotification: (id: string) => void
   switchProvider: (provider: LLMProvider) => Promise<void>
+  restartKernel: () => Promise<void>
 }
 
 const defaultState: GriffinState = {
@@ -63,9 +71,11 @@ const defaultState: GriffinState = {
   browserStatus: null,
   notifications: [],
   sessionId: null,
+  desktopRuntime: null,
   setSessionId: () => {},
   dismissNotification: () => {},
   switchProvider: async () => {},
+  restartKernel: async () => {},
 }
 
 const GriffinContext = createContext<GriffinState>(defaultState)
@@ -109,6 +119,8 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
   const [browserStatus, setBrowserStatus] = useState<BrowserStatus | null>(null)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [desktopRuntime, setDesktopRuntime] =
+    useState<DesktopRuntimeSnapshot | null>(null)
 
   const seenIds = useRef(new Set<string>())
   const avatarTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -303,6 +315,45 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
     [provider, switchingProvider, refreshHealth, pushNotification],
   )
 
+  const restartKernel = useCallback(async () => {
+    try {
+      const snapshot = await restartDesktopBackend()
+      if (snapshot) setDesktopRuntime(snapshot)
+      await refreshHealth()
+    } catch (err) {
+      pushNotification({
+        id: `notif_kernel_restart_${Date.now()}`,
+        level: "error",
+        title: "Kernel restart failed",
+        body:
+          err instanceof Error
+            ? err.message
+            : "Could not restart Griffin Kernel.",
+      })
+    }
+  }, [pushNotification, refreshHealth])
+
+  useEffect(() => {
+    let cancelled = false
+    let unlisten: (() => void) | undefined
+    void (async () => {
+      const cleanup = await listenForDesktopRuntime((snapshot) => {
+        if (!cancelled) setDesktopRuntime(snapshot)
+      })
+      if (cancelled) {
+        cleanup()
+        return
+      }
+      unlisten = cleanup
+      const snapshot = await getDesktopRuntime()
+      if (!cancelled && snapshot) setDesktopRuntime(snapshot)
+    })()
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     Promise.all([getHealth(), getProviderInfo(), getBrowserStatus()])
@@ -321,6 +372,11 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => void refreshHealth(), 5_000)
+    return () => window.clearInterval(timer)
+  }, [refreshHealth])
 
   // Seed the buffer from REST, then stream live events over WS
   useEffect(() => {
@@ -366,9 +422,11 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
       browserStatus,
       notifications,
       sessionId,
+      desktopRuntime,
       setSessionId,
       dismissNotification,
       switchProvider,
+      restartKernel,
     }),
     [
       events,
@@ -384,8 +442,10 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
       browserStatus,
       notifications,
       sessionId,
+      desktopRuntime,
       dismissNotification,
       switchProvider,
+      restartKernel,
     ],
   )
 
