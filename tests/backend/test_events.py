@@ -8,14 +8,21 @@ from backend.events.events import EventEnvelope, EventType, envelope_from_row, n
 
 
 def test_event_envelope_shape():
-    event = new_event(EventType.TOOL_CALL_STARTED, session_id="ses_1", task_id="task_1", data={"tool": "x"})
+    event = new_event(
+        EventType.TOOL_CALL_STARTED,
+        session_id="ses_1",
+        task_id="task_1",
+        run_id="run_1",
+        data={"tool": "x"},
+    )
     payload = event.model_dump()
-    assert set(payload) == {"id", "type", "timestamp", "session_id", "task_id", "data"}
+    assert set(payload) == {"id", "type", "timestamp", "session_id", "task_id", "run_id", "data"}
     assert payload["id"].startswith("evt_")
     assert payload["type"] == "TOOL_CALL_STARTED"
     assert payload["timestamp"].endswith("Z")
     assert payload["session_id"] == "ses_1"
     assert payload["task_id"] == "task_1"
+    assert payload["run_id"] == "run_1"
     assert payload["data"] == {"tool": "x"}
 
 
@@ -33,6 +40,9 @@ def test_all_spec_event_types_defined():
         "USER_APPROVAL_REQUIRED",
         "STT_STARTED", "STT_COMPLETED", "STT_FAILED",
         "WORKFLOW_STARTED", "WORKFLOW_COMPLETED",
+        # Phase 1 additions
+        "PERMISSION_REQUIRED", "PERMISSION_GRANTED", "PERMISSION_DENIED",
+        "BROWSER_NAVIGATION", "BROWSER_PAGE_LOADED",
     }
     assert set(EventType.ALL) == expected
 

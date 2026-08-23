@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     search_api_url: str = ""
     browser_headless: bool = False
 
+    # Browser automation (Phase 1 — Griffin-controlled browser)
+    browser_goto_timeout_ms: int = 15_000
+    browser_profile_dir: str = "~/.gryphon/browser-profile"
+    browser_screenshot_dir: str = "~/.gryphon/browser-screenshots"
+
+    # Agent loop rails (Phase 1)
+    agent_max_steps: int = 4  # max LLM/tool iterations per run (prevents loops)
+    max_tool_retries: int = 2  # bounded retries for transient tool failures (timeouts)
+    tool_timeout: float = 30.0  # seconds before a tool call is aborted
+
     # Desktop execution safety rails (Phase 1)
     default_browser: str = ""  # e.g. "Safari"; empty = system default browser
     allowed_applications: str = (

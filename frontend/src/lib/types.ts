@@ -18,6 +18,11 @@ export const EVENT_TYPES = [
   "STT_FAILED",
   "WORKFLOW_STARTED",
   "WORKFLOW_COMPLETED",
+  "PERMISSION_REQUIRED",
+  "PERMISSION_GRANTED",
+  "PERMISSION_DENIED",
+  "BROWSER_NAVIGATION",
+  "BROWSER_PAGE_LOADED",
 ] as const
 
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -29,6 +34,7 @@ export interface GryphonEvent {
   timestamp: string
   session_id: string | null
   task_id: string | null
+  run_id: string | null
   data: Record<string, unknown>
 }
 
@@ -62,11 +68,19 @@ export interface ChatToolCall {
 }
 
 export interface ChatResponse {
+  run_id: string | null
   message_id: string
   task_id: string
   session_id: string
   response: string
   tool_calls: ChatToolCall[]
+}
+
+export interface BrowserStatus {
+  active: boolean
+  mock: boolean
+  url: string | null
+  title: string | null
 }
 
 export interface ChatMessage {

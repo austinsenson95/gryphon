@@ -84,9 +84,12 @@ def register(registry, settings: Settings, bus=None) -> None:
     async def _publish(type: str, data: dict) -> None:
         if bus is None:
             return
+        from backend.core import context as run_context
         from backend.events.events import new_event
 
-        await bus.publish(new_event(type, data=data))
+        await bus.publish(
+            new_event(type, run_id=run_context.get_run_id(), data=data)
+        )
 
     async def run_workflow(name: str) -> ToolResult:
         from backend.core import executor  # local import: avoid cycle at load

@@ -1,4 +1,5 @@
 import type {
+  BrowserStatus,
   ChatResponse,
   GryphonEvent,
   HealthResponse,
@@ -53,6 +54,10 @@ export function getEvents(limit = 50): Promise<GryphonEvent[]> {
 
 export function getProviderInfo(): Promise<ProviderInfoResponse> {
   return request<ProviderInfoResponse>("/api/llm/provider")
+}
+
+export function getBrowserStatus(): Promise<BrowserStatus> {
+  return request<BrowserStatus>("/api/browser")
 }
 
 export function setProvider(provider: LLMProvider): Promise<ProviderInfoResponse> {

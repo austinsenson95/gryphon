@@ -52,6 +52,7 @@ class EventBus:
                 type=event.type,
                 session_id=event.session_id,
                 task_id=event.task_id,
+                run_id=event.run_id,
                 data=event.data,
             )
         logger.debug(

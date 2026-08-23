@@ -1,0 +1,23 @@
+"""Per-run execution context (Phase 1).
+
+The agent sets the current ``run_id`` as a context-local value so any tool
+that publishes its own events mid-execution (browser navigation, workflows)
+can stamp them with the same run ID as the enclosing request. Falls back to
+``None`` for events published outside a run.
+"""
+
+from __future__ import annotations
+
+import contextvars
+
+_current_run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "gryphon_run_id", default=None
+)
+
+
+def set_run_id(run_id: str | None) -> None:
+    _current_run_id.set(run_id)
+
+
+def get_run_id() -> str | None:
+    return _current_run_id.get()

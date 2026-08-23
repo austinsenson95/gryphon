@@ -138,4 +138,18 @@ class OllamaProvider(LLMProvider):
         if msg.role == "tool":
             # Ollama accepts tool-role messages keyed by tool name.
             return {"role": "tool", "name": msg.name or "tool", "content": msg.content}
+        if msg.role == "assistant" and msg.tool_calls:
+            return {
+                "role": "assistant",
+                "content": msg.content,
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": tc.name,
+                            "arguments": tc.arguments,
+                        }
+                    }
+                    for tc in msg.tool_calls
+                ],
+            }
         return {"role": msg.role, "content": msg.content}

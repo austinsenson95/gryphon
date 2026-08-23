@@ -8,7 +8,9 @@
   * otherwise the deterministic, network-free :class:`MockLLMProvider`.
 The mock is the sanctioned offline fallback (SPEC §2): it is rule-based, but
 the tool calls it emits are REAL — the agent executes them through the tool
-registry.
+registry. Phase 1 extends the mock to compose chained requests ("Open Safari
+and go to github.com") into multiple structured tool calls so offline runs can
+exercise multi-step execution too.
 """
 
 from __future__ import annotations
@@ -24,7 +26,13 @@ from backend.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMToolCall
 logger = get_logger("gryphon.llm")
 
 _OPEN_URL_RE = re.compile(r"open\s+(https?://\S+)", re.IGNORECASE)
-_SEARCH_RE = re.compile(r"search(?:\s+(?:the\s+web\s+)?for)?\s+(.+)", re.IGNORECASE | re.DOTALL)
+_GO_TO_URL_RE = re.compile(r"go\s+to\s+(https?://\S+)", re.IGNORECASE)
+_GO_TO_SITE_RE = re.compile(
+    r"go\s+to\s+(github|google|youtube|hacker\s+news)\b", re.IGNORECASE
+)
+_SEARCH_RE = re.compile(
+    r"search(?:\s+(?:the\s+web\s+)?for)?\s+(.+)", re.IGNORECASE | re.DOTALL
+)
 _OPEN_APP_RE = re.compile(
     r"open\s+(?:my\s+)?(safari|chrome|google chrome|firefox|arc|vs\s*code|"
     r"visual studio code|terminal|iterm|notes|calendar|finder|slack|spotify)\b",
@@ -36,14 +44,14 @@ _KNOWN_SITES = {
     "youtube": "https://www.youtube.com",
     "hacker news": "https://news.ycombinator.com",
 }
-_OPEN_SITE_RE = re.compile(
-    r"open\s+(github|google|youtube|hacker\s+news)\b", re.IGNORECASE
-)
+_OPEN_SITE_RE = re.compile(r"open\s+(github|google|youtube|hacker\s+news)\b", re.IGNORECASE)
 _OPEN_PROJECT_RE = re.compile(r"open\s+(?:my\s+)?(\w[\w-]*)\s+project\b", re.IGNORECASE)
 _OPEN_FOLDER_RE = re.compile(r"open\s+(?:my\s+)?(\w[\w-]*)\s+folder\b", re.IGNORECASE)
 _WORKFLOW_RE = re.compile(
     r"(?:start|run)\s+(?:my\s+)?([\w\s-]+?)(?:\s+workflow)?\s*$", re.IGNORECASE
 )
+# Chained multi-action connectors (Phase 1 multi-step requests).
+_CHAIN_RE = re.compile(r"\s+(?:and\s+then|then|and|,)\s+", re.IGNORECASE)
 
 _APP_ALIASES = {
     "safari": "Safari",
@@ -95,9 +103,11 @@ class MockLLMProvider(LLMProvider):
       * "open my <name> project"                 -> desktop.open_project
       * "open my <name> folder"                  -> desktop.open_folder
       * "open <github|google|youtube|...>"       -> desktop.open_url
-      * /open\\s+(https?://\\S+)/i               -> desktop.open_url {"url": ...}
+      * /open\s+(https?://\S+)/i                 -> desktop.open_url {"url": ...}
+      * "go to <site|url>"                       -> browser.open
       * "search [the web] [for] <q>"             -> desktop.search_web
       * "start/run my <workflow>" (known alias)  -> workflow.run
+      * chained "X and Y" / "X then Y" requests  -> one tool call per clause
       * otherwise                                -> conversational reply
 
     When the latest message is a tool result, it synthesizes a natural-language
@@ -125,61 +135,91 @@ class MockLLMProvider(LLMProvider):
         if "time" in lowered:
             return LLMResponse(tool_calls=[_tool_call("system.get_time", {})])
 
-        match = _WORKFLOW_RE.search(user_text)
-        if match and any(k in lowered for k in ("start", "run", "workflow")):
-            key = match.group(1).strip().lower()
-            workflow = _WORKFLOW_ALIASES.get(key)
-            if workflow:
-                return LLMResponse(
-                    tool_calls=[_tool_call("workflow.run", {"name": workflow})]
-                )
+        # Compound multi-action requests (Phase 1): one tool call per clause.
+        compound = self._plan_compound(user_text)
+        if compound:
+            return LLMResponse(tool_calls=[_tool_call(n, a) for n, a in compound])
 
-        match = _OPEN_APP_RE.search(user_text)
+        plan = self._plan_single(user_text)
+        if plan:
+            name, args = plan
+            return LLMResponse(tool_calls=[_tool_call(name, args)])
+
+        return LLMResponse(content=_MOCK_IDENTITY)
+
+    # ------------------------------------------------------------------ planning
+
+    def _plan_compound(self, text: str) -> list[tuple[str, dict]] | None:
+        """Split "X and Y" / "X then Y" into a plan only when BOTH clauses
+        independently resolve to an action (never for prose with a stray
+        'and'). Returns None when not clearly compound."""
+        parts = [p.strip() for p in _CHAIN_RE.split(text)]
+        if len(parts) < 2:
+            return None
+        # Avoid false positives on long prose / search queries with "and".
+        if len(text) > 120:
+            return None
+        plans: list[tuple[str, dict]] = []
+        for part in parts:
+            if not part:
+                return None
+            plan = self._plan_single(part)
+            if plan is None:
+                return None
+            plans.append(plan)
+        return plans
+
+    def _plan_single(self, text: str) -> tuple[str, dict] | None:
+        """Resolve one clause to a single (tool, args) plan, or None."""
+        lowered = text.lower().strip()
+
+        match = _WORKFLOW_RE.search(text)
+        if match and any(k in lowered for k in ("start", "run", "workflow")):
+            workflow = _WORKFLOW_ALIASES.get(match.group(1).strip().lower())
+            if workflow:
+                return ("workflow.run", {"name": workflow})
+
+        match = _OPEN_APP_RE.search(text)
         if match:
             app = _APP_ALIASES[match.group(1).lower().replace("  ", " ")]
-            return LLMResponse(
-                tool_calls=[_tool_call("desktop.open_application", {"application": app})]
-            )
+            return ("desktop.open_application", {"application": app})
 
-        match = _OPEN_PROJECT_RE.search(user_text)
+        match = _OPEN_PROJECT_RE.search(text)
         if match:
-            return LLMResponse(
-                tool_calls=[
-                    _tool_call("desktop.open_project", {"project": match.group(1).lower()})
-                ]
-            )
+            return ("desktop.open_project", {"project": match.group(1).lower()})
 
-        match = _OPEN_FOLDER_RE.search(user_text)
+        match = _OPEN_FOLDER_RE.search(text)
         if match:
-            return LLMResponse(
-                tool_calls=[
-                    _tool_call(
-                        "desktop.open_folder", {"path": f"~/{match.group(1).capitalize()}"}
-                    )
-                ]
-            )
+            return ("desktop.open_folder", {"path": f"~/{match.group(1).capitalize()}"})
 
-        match = _OPEN_URL_RE.search(user_text)
+        match = _OPEN_URL_RE.search(text)
         if match:
-            return LLMResponse(
-                tool_calls=[_tool_call("desktop.open_url", {"url": match.group(1)})]
-            )
+            return ("desktop.open_url", {"url": match.group(1)})
 
-        match = _OPEN_SITE_RE.search(user_text)
+        match = _GO_TO_URL_RE.search(text)
+        if match:
+            return ("browser.open", {"url": match.group(1)})
+
+        match = _GO_TO_SITE_RE.search(text)
         if match:
             url = _KNOWN_SITES[re.sub(r"\s+", " ", match.group(1).lower())]
-            return LLMResponse(tool_calls=[_tool_call("desktop.open_url", {"url": url})])
+            return ("browser.open", {"url": url})
+
+        match = _OPEN_SITE_RE.search(text)
+        if match:
+            url = _KNOWN_SITES[re.sub(r"\s+", " ", match.group(1).lower())]
+            return ("desktop.open_url", {"url": url})
 
         if "search" in lowered:
-            match = _SEARCH_RE.search(user_text)
+            match = _SEARCH_RE.search(text)
             if match:
                 query = match.group(1).strip().rstrip("?.!")
                 if query:
-                    return LLMResponse(
-                        tool_calls=[_tool_call("desktop.search_web", {"query": query})]
-                    )
+                    return ("desktop.search_web", {"query": query})
 
-        return LLMResponse(content=_MOCK_IDENTITY)
+        return None
+
+    # ------------------------------------------------------------------ synthesis
 
     def _synthesize_tool_answer(self, messages: list[LLMMessage]) -> str:
         """Build a final natural-language answer from tool result messages."""
@@ -221,7 +261,7 @@ class MockLLMProvider(LLMProvider):
             if data.get("mock"):
                 lines.append("(mock results — no search API configured)")
             return "\n".join(lines)
-        if name == "desktop.open_url" or name == "browser.open_url":
+        if name in ("desktop.open_url", "browser.open_url", "browser.open"):
             if data.get("opened"):
                 extra = f" — page title: \"{data.get('title')}\"" if data.get("title") else ""
                 return f"I opened {data.get('url')}{extra}."
@@ -231,8 +271,16 @@ class MockLLMProvider(LLMProvider):
             )
         if name == "desktop.search_web":
             return f"I opened a web search for \"{data.get('query', '')}\"."
-        if name == "desktop.open_application":
+        if name in ("desktop.open_application", "desktop.open_app"):
             return f"I opened {data.get('application', 'the application')}."
+        if name == "desktop.close_app":
+            return f"I closed {data.get('application', 'the application')}."
+        if name == "desktop.notification":
+            return f"I showed a notification: {data.get('title', '')}."
+        if name == "desktop.clipboard_read":
+            return f"The clipboard contains: {data.get('text', '')[:200]}"
+        if name == "desktop.clipboard_write":
+            return f"I wrote {data.get('length', 0)} characters to the clipboard."
         if name == "desktop.open_folder":
             return f"I opened the folder {data.get('path', '')}."
         if name == "desktop.open_project":
@@ -292,6 +340,22 @@ class OpenAICompatibleProvider(LLMProvider):
 
     @staticmethod
     def _to_openai_message(msg: LLMMessage) -> dict:
+        if msg.role == "assistant" and msg.tool_calls:
+            return {
+                "role": "assistant",
+                "content": msg.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.name,
+                            "arguments": json.dumps(tc.arguments),
+                        },
+                    }
+                    for tc in msg.tool_calls
+                ],
+            }
         # History tool messages are flattened to text so a transcript replayed
         # from the DB stays valid even without the original assistant tool_calls.
         if msg.role == "tool" and msg.tool_call_id:

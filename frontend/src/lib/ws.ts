@@ -47,6 +47,7 @@ export function parseEvent(raw: unknown): GryphonEvent | null {
     timestamp: evt.timestamp,
     session_id: typeof evt.session_id === "string" ? evt.session_id : null,
     task_id: typeof evt.task_id === "string" ? evt.task_id : null,
+    run_id: typeof evt.run_id === "string" ? evt.run_id : null,
     data:
       evt.data !== null && typeof evt.data === "object" && !Array.isArray(evt.data)
         ? (evt.data as Record<string, unknown>)

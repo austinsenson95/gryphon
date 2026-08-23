@@ -54,6 +54,7 @@ class Event(Base):
     type: Mapped[str] = mapped_column(String, index=True)
     session_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     task_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    run_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     data: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

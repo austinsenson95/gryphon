@@ -70,6 +70,14 @@ vi.stubGlobal(
         available: ["ollama", "xai"],
       })
     }
+    if (url.includes("/api/browser")) {
+      return jsonResponse({
+        active: false,
+        mock: true,
+        url: null,
+        title: null,
+      })
+    }
     if (url.includes("/api/events")) return jsonResponse([])
     return jsonResponse({ error: { code: "not_found", message: "not found" } }, 404)
   }),

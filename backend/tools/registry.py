@@ -34,6 +34,12 @@ class ToolRegistry:
     def list(self) -> list[Tool]:
         return list(self._tools.values())
 
+    def category_of(self, tool: Tool) -> str:
+        """Effective category: explicit value, else derived from the name prefix."""
+        if tool.category != "general":
+            return tool.category
+        return tool.name.split(".", 1)[0] if "." in tool.name else "general"
+
     def openai_schemas(self) -> list[dict]:
         """OpenAI tool schemas for LLM-visible (non-privileged) tools only."""
         return [
@@ -55,7 +61,7 @@ def create_default_registry(settings: Settings, bus=None) -> ToolRegistry:
     registry = ToolRegistry()
     terminal.register(registry, settings)
     research.register(registry, settings)
-    browser.register(registry, settings)
+    browser.register(registry, settings, bus=bus)
     desktop.register(registry, settings)
     workflows.register(registry, settings, bus=bus)
     return registry

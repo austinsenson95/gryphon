@@ -50,3 +50,4 @@ class Tool:
     input_schema: dict  # JSON schema for the handler keyword arguments
     permission: Permission
     handler: ToolHandler
+    category: str = "general"  # e.g. "browser", "desktop", "system", "web", "workflow"

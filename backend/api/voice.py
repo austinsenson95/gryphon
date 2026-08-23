@@ -39,6 +39,7 @@ _CONTENT_TYPE_SUFFIX = {
 
 class VoiceResponse(BaseModel):
     transcript: str
+    run_id: str
     message_id: str
     task_id: str
     session_id: str

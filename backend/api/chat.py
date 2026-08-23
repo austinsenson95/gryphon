@@ -23,6 +23,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    run_id: str
     message_id: str
     task_id: str
     session_id: str

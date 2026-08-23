@@ -4,10 +4,13 @@ import {
   Bot,
   Brain,
   CheckCircle2,
+  Globe,
   ListTodo,
   MessageSquare,
   Play,
   ShieldAlert,
+  ShieldCheck,
+  ShieldX,
   Sparkles,
   Workflow,
   Wrench,
@@ -43,20 +46,30 @@ const EVENT_ICONS: Record<EventType, LucideIcon> = {
   STT_FAILED: XCircle,
   WORKFLOW_STARTED: Workflow,
   WORKFLOW_COMPLETED: CheckCircle2,
+  PERMISSION_REQUIRED: ShieldAlert,
+  PERMISSION_GRANTED: ShieldCheck,
+  PERMISSION_DENIED: ShieldX,
+  BROWSER_NAVIGATION: Globe,
+  BROWSER_PAGE_LOADED: Globe,
 }
 
 function iconTone(type: EventType): string {
   switch (type) {
     case "TOOL_CALL_FAILED":
     case "TASK_FAILED":
+    case "PERMISSION_DENIED":
       return "text-red-400"
     case "USER_APPROVAL_REQUIRED":
+    case "PERMISSION_REQUIRED":
       return "text-amber-400"
     case "TASK_COMPLETED":
     case "TOOL_CALL_COMPLETED":
+    case "PERMISSION_GRANTED":
       return "text-emerald-400"
     case "AGENT_THINKING":
     case "TOOL_CALL_STARTED":
+    case "BROWSER_NAVIGATION":
+    case "BROWSER_PAGE_LOADED":
       return "text-cyan-300"
     default:
       return "text-slate-300"

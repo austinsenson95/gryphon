@@ -1,8 +1,24 @@
-"""Event envelope + type constants (SPEC §2 Events).
+"""Event envelope + type constants (SPEC §2, extended for Phase 1).
 
 Envelope JSON (exact):
 {"id":"evt_<uuid>","type":"TOOL_CALL_STARTED","timestamp":"<UTC ISO8601 Z>",
- "session_id":"...","task_id":"...|null","data":{}}
+ "session_id":"...|null","task_id":"...|null","run_id":"...|null","data":{}}
+
+Every event published during one user request carries the same ``run_id`` so
+the whole execution is representable as one unit (§9).
+
+Event names follow the existing normalized UPPER_SNAKE convention. The spec's
+dotted names map 1:1 onto them:
+
+  agent.started      == AGENT_STARTED         tool.completed    == TOOL_CALL_COMPLETED
+  agent.thinking     == AGENT_THINKING        tool.failed       == TOOL_CALL_FAILED
+  agent.completed    == AGENT_RESPONSE (+ TASK_COMPLETED)
+  agent.failed       == TASK_FAILED
+  tool.started       == TOOL_CALL_STARTED
+  permission.required== PERMISSION_REQUIRED   permission.granted== PERMISSION_GRANTED
+  permission.denied  == PERMISSION_DENIED
+  browser.navigation == BROWSER_NAVIGATION    browser.page_loaded == BROWSER_PAGE_LOADED
+  workflow.started   == WORKFLOW_STARTED      workflow.completed == WORKFLOW_COMPLETED
 """
 
 from __future__ import annotations
@@ -32,6 +48,13 @@ class EventType:
     WORKFLOW_STARTED = "WORKFLOW_STARTED"
     WORKFLOW_COMPLETED = "WORKFLOW_COMPLETED"
 
+    # Phase 1 additions
+    PERMISSION_REQUIRED = "PERMISSION_REQUIRED"
+    PERMISSION_GRANTED = "PERMISSION_GRANTED"
+    PERMISSION_DENIED = "PERMISSION_DENIED"
+    BROWSER_NAVIGATION = "BROWSER_NAVIGATION"
+    BROWSER_PAGE_LOADED = "BROWSER_PAGE_LOADED"
+
     ALL = (
         SESSION_CREATED, MESSAGE_RECEIVED, AGENT_STARTED, AGENT_THINKING,
         TOOL_CALL_STARTED, TOOL_CALL_COMPLETED, TOOL_CALL_FAILED,
@@ -39,6 +62,8 @@ class EventType:
         USER_APPROVAL_REQUIRED,
         STT_STARTED, STT_COMPLETED, STT_FAILED,
         WORKFLOW_STARTED, WORKFLOW_COMPLETED,
+        PERMISSION_REQUIRED, PERMISSION_GRANTED, PERMISSION_DENIED,
+        BROWSER_NAVIGATION, BROWSER_PAGE_LOADED,
     )
 
 
@@ -52,6 +77,7 @@ class EventEnvelope(BaseModel):
     timestamp: str
     session_id: str | None = None
     task_id: str | None = None
+    run_id: str | None = None
     data: dict = Field(default_factory=dict)
 
 
@@ -59,6 +85,7 @@ def new_event(
     type: str,
     session_id: str | None = None,
     task_id: str | None = None,
+    run_id: str | None = None,
     data: dict | None = None,
 ) -> EventEnvelope:
     return EventEnvelope(
@@ -67,6 +94,7 @@ def new_event(
         timestamp=utc_iso_now(),
         session_id=session_id,
         task_id=task_id,
+        run_id=run_id,
         data=data or {},
     )
 
@@ -81,5 +109,6 @@ def envelope_from_row(row) -> EventEnvelope:
         timestamp=iso(row.created_at) or "",
         session_id=row.session_id,
         task_id=row.task_id,
+        run_id=getattr(row, "run_id", None),
         data=row.data or {},
     )

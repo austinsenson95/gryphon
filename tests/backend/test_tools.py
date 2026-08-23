@@ -61,8 +61,13 @@ async def test_browser_open_url_validates_scheme(registry):
     assert result.error.code == "INVALID_URL"
 
 
-async def test_browser_open_url_mock_fallback(registry):
-    # Playwright is not installed in this environment -> sanctioned mock path.
+async def test_browser_open_url_mock_fallback(registry, monkeypatch):
+    # Force the sanctioned mock path (as if Playwright were unavailable), so
+    # the graceful-degradation contract is tested deterministically.
+    monkeypatch.setattr(
+        "backend.tools.browser.manager.BrowserManager.available",
+        lambda self: False,
+    )
     result = await executor.execute_tool(registry, "browser.open_url", {"url": "https://example.com"})
     assert result.success is True
     assert result.data["mock"] is True

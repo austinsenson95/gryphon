@@ -120,8 +120,16 @@ async def add_event(
     session_id: str | None,
     task_id: str | None,
     data: dict,
+    run_id: str | None = None,
 ) -> Event:
-    row = Event(id=event_id, type=type, session_id=session_id, task_id=task_id, data=data)
+    row = Event(
+        id=event_id,
+        type=type,
+        session_id=session_id,
+        task_id=task_id,
+        run_id=run_id,
+        data=data,
+    )
     session.add(row)
     await session.commit()
     return row

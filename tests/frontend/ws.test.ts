@@ -8,6 +8,7 @@ const VALID_ENVELOPE = {
   timestamp: "2025-01-01T00:00:00Z",
   session_id: "sess_1",
   task_id: "task_1",
+  run_id: null,
   data: { tool: "system.get_time", input: {} },
 }
 

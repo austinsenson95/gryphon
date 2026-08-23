@@ -44,6 +44,32 @@ async def _run_mac_open(args: list[str]) -> tuple[bool, str]:
     return True, ""
 
 
+def _apple_quote(text: str) -> str:
+    """Quote a string for embedding in an AppleScript literal (no shell)."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+async def _run_osascript(script: str) -> tuple[bool, str]:
+    """Run AppleScript via osascript with an argv list — no shell, no injection."""
+    osascript_bin = shutil.which("osascript")
+    if not osascript_bin:
+        return False, "osascript not found (unsupported platform)."
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            osascript_bin,
+            "-e",
+            script,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=_SUBPROCESS_TIMEOUT)
+    except asyncio.TimeoutError:
+        return False, f"osascript timed out after {_SUBPROCESS_TIMEOUT}s."
+    if proc.returncode != 0:
+        return False, (stderr.decode(errors="replace").strip() or f"exit {proc.returncode}")
+    return True, ""
+
+
 def _validate_url(url: str) -> str | None:
     """Return an error message when the URL is not an allowed http(s) URL."""
     if not url or len(url) > 2048 or any(c in url for c in ("\n", "\r", "\x00")):
@@ -210,6 +236,93 @@ def register(registry, settings: Settings) -> None:
             "desktop.open_terminal", {"opened": True, "path": path or None}
         )
 
+    async def close_app(application: str) -> ToolResult:
+        canonical = _resolve_application(settings, application)
+        if canonical is None:
+            return ToolResult.fail(
+                "desktop.close_app",
+                "UNSUPPORTED_APPLICATION",
+                f"Application {application!r} is not in the allowlist "
+                f"({settings.allowed_applications}).",
+            )
+        script = f'quit app "{canonical}"'
+        ok, detail = await _run_osascript(script)
+        if not ok:
+            return ToolResult.fail("desktop.close_app", "COMMAND_FAILED", detail)
+        return ToolResult.ok(
+            "desktop.close_app", {"application": canonical, "closed": True}
+        )
+
+    async def notify(title: str, message: str = "") -> ToolResult:
+        title = (title or "").strip()
+        message = (message or "").strip()
+        if not title and not message:
+            return ToolResult.fail(
+                "desktop.notification",
+                "INVALID_ARGUMENTS",
+                "A title (and optionally a message) is required.",
+            )
+        script = f'display notification {_apple_quote(message)} with title {_apple_quote(title)}'
+        ok, detail = await _run_osascript(script)
+        if not ok:
+            return ToolResult.fail("desktop.notification", "COMMAND_FAILED", detail)
+        return ToolResult.ok(
+            "desktop.notification", {"title": title, "message": message, "sent": True}
+        )
+
+    async def clipboard_read() -> ToolResult:
+        proc = await asyncio.create_subprocess_exec(
+            "pbpaste",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(), timeout=_SUBPROCESS_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            return ToolResult.fail(
+                "desktop.clipboard_read", "COMMAND_FAILED", "pbpaste timed out."
+            )
+        if proc.returncode != 0:
+            return ToolResult.fail(
+                "desktop.clipboard_read",
+                "COMMAND_FAILED",
+                stderr.decode(errors="replace").strip() or f"exit {proc.returncode}",
+            )
+        return ToolResult.ok(
+            "desktop.clipboard_read", {"text": stdout.decode(errors="replace")}
+        )
+
+    async def clipboard_write(text: str) -> ToolResult:
+        if len(text) > 1_000_000:
+            return ToolResult.fail(
+                "desktop.clipboard_write", "INVALID_ARGUMENTS", "Text is too large."
+            )
+        proc = await asyncio.create_subprocess_exec(
+            "pbcopy",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(
+                proc.communicate(input=text.encode("utf-8")), timeout=_SUBPROCESS_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            return ToolResult.fail(
+                "desktop.clipboard_write", "COMMAND_FAILED", "pbcopy timed out."
+            )
+        if proc.returncode != 0:
+            return ToolResult.fail(
+                "desktop.clipboard_write",
+                "COMMAND_FAILED",
+                stderr.decode(errors="replace").strip() or f"exit {proc.returncode}",
+            )
+        return ToolResult.ok(
+            "desktop.clipboard_write", {"length": len(text), "written": True}
+        )
+
     registry.register(
         Tool(
             name="desktop.open_application",
@@ -289,8 +402,9 @@ def register(registry, settings: Settings) -> None:
         Tool(
             name="desktop.open_project",
             description=(
-                "Open a named project from the configured project registry, "
-                "preferring VS Code when available."
+                "Open a named project from the configured project registry. "
+                "Only use when the user explicitly names a project alias; "
+                "do not use this to open an application."
             ),
             input_schema={
                 "type": "object",
@@ -325,5 +439,88 @@ def register(registry, settings: Settings) -> None:
             },
             permission="safe",
             handler=open_terminal,
+        )
+    )
+    registry.register(
+        Tool(
+            name="desktop.open_app",
+            description=(
+                "Alias of desktop.open_application: open an installed macOS "
+                "application by name (allowlisted)."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "application": {
+                        "type": "string",
+                        "description": "Application name, e.g. 'Safari'. Allowed: "
+                        + ", ".join(settings.allowed_application_list),
+                    }
+                },
+                "required": ["application"],
+            },
+            permission="safe",
+            handler=open_application,
+        )
+    )
+    registry.register(
+        Tool(
+            name="desktop.close_app",
+            description=(
+                "Quit an installed macOS application by name (allowlisted)."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "application": {
+                        "type": "string",
+                        "description": "Application name, e.g. 'Safari'. Allowed: "
+                        + ", ".join(settings.allowed_application_list),
+                    }
+                },
+                "required": ["application"],
+            },
+            permission="safe",
+            handler=close_app,
+        )
+    )
+    registry.register(
+        Tool(
+            name="desktop.notification",
+            description="Show a macOS notification with a title and optional message.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Notification title."},
+                    "message": {"type": "string", "description": "Optional message body."},
+                },
+                "required": ["title"],
+            },
+            permission="safe",
+            handler=notify,
+        )
+    )
+    registry.register(
+        Tool(
+            name="desktop.clipboard_read",
+            description="Read the current text on the macOS clipboard.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission="safe",
+            handler=clipboard_read,
+        )
+    )
+    registry.register(
+        Tool(
+            name="desktop.clipboard_write",
+            description="Write text to the macOS clipboard.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to put on the clipboard."}
+                },
+                "required": ["text"],
+            },
+            permission="confirm",
+            handler=clipboard_write,
         )
     )

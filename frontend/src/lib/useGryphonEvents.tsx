@@ -15,10 +15,11 @@ import {
   SUCCESS_IDLE_MS,
   type AvatarState,
 } from "@/avatar/stateMachine"
-import { getEvents, getHealth, getProviderInfo, setProvider } from "@/lib/api"
+import { getBrowserStatus, getEvents, getHealth, getProviderInfo, setProvider } from "@/lib/api"
 import { createGryphonSocket } from "@/lib/ws"
 import type {
   AppNotification,
+  BrowserStatus,
   ConnectionStatus,
   CurrentTask,
   GryphonEvent,
@@ -40,6 +41,7 @@ export interface GryphonState {
   avatarState: AvatarState
   currentTask: CurrentTask | null
   toolActivity: ToolActivityItem[]
+  browserStatus: BrowserStatus | null
   notifications: AppNotification[]
   sessionId: string | null
   setSessionId: (id: string) => void
@@ -58,6 +60,7 @@ const defaultState: GryphonState = {
   avatarState: "IDLE",
   currentTask: null,
   toolActivity: [],
+  browserStatus: null,
   notifications: [],
   sessionId: null,
   setSessionId: () => {},
@@ -103,6 +106,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
   const [avatarState, setAvatarState] = useState<AvatarState>("IDLE")
   const [currentTask, setCurrentTask] = useState<CurrentTask | null>(null)
   const [toolActivity, setToolActivity] = useState<ToolActivityItem[]>([])
+  const [browserStatus, setBrowserStatus] = useState<BrowserStatus | null>(null)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
 
@@ -189,7 +193,34 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
           })
           break
         }
+        case "PERMISSION_REQUIRED":
+        case "USER_APPROVAL_REQUIRED": {
+          pushNotification({
+            id: `notif_${event.id}`,
+            level: "warning",
+            title: "Approval required",
+            body:
+              asString(event.data.message) ??
+              `Gryphon wants to run ${toolNameOf(event)}.`,
+          })
+          break
+        }
+        case "BROWSER_NAVIGATION":
+        case "BROWSER_PAGE_LOADED": {
+          const url = asString(event.data.url)
+          const title = asString(event.data.title)
+          setBrowserStatus({
+            active: Boolean(url),
+            mock: false,
+            url: url ?? null,
+            title: title ?? null,
+          })
+          break
+        }
         case "TOOL_CALL_STARTED": {
+          if (toolNameOf(event).startsWith("browser.")) {
+            setBrowserStatus((prev) => prev ?? { active: false, mock: false, url: null, title: null })
+          }
           setToolActivity((prev) =>
             [
               {
@@ -285,13 +316,14 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([getHealth(), getProviderInfo()])
-      .then(([health, info]) => {
+    Promise.all([getHealth(), getProviderInfo(), getBrowserStatus()])
+      .then(([health, info, browser]) => {
         if (cancelled) return
         setHealthOk(health.status === "ok")
         setLlmMode(health.llm_mode ?? null)
         setProviderState(info.provider)
         setAvailableProviders(info.available)
+        setBrowserStatus(browser)
       })
       .catch(() => {
         if (!cancelled) setHealthOk(false)
@@ -342,6 +374,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
       avatarState,
       currentTask,
       toolActivity,
+      browserStatus,
       notifications,
       sessionId,
       setSessionId,
@@ -359,6 +392,7 @@ export function GryphonProvider({ children }: { children: ReactNode }) {
       avatarState,
       currentTask,
       toolActivity,
+      browserStatus,
       notifications,
       sessionId,
       dismissNotification,

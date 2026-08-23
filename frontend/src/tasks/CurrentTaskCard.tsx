@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, XCircle } from "lucide-react"
+import { CheckCircle2, Globe, Loader2, XCircle } from "lucide-react"
 
 import {
   GlassCard,
@@ -18,7 +18,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export function CurrentTaskCard() {
-  const { currentTask } = useGryphonEvents()
+  const { currentTask, browserStatus } = useGryphonEvents()
 
   return (
     <GlassCard>
@@ -29,6 +29,22 @@ export function CurrentTaskCard() {
         </GlassCardDescription>
       </GlassCardHeader>
       <GlassCardContent>
+        {browserStatus?.active && browserStatus.url && (
+          <div className="mb-3 flex items-center gap-2 rounded-xl border border-cyan-300/15 bg-cyan-400/[0.06] px-3 py-2">
+            <Globe className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-medium uppercase tracking-wider text-cyan-200/70">
+                Browser
+              </p>
+              <p className="truncate text-xs text-white/80">{browserStatus.url}</p>
+              {browserStatus.title && (
+                <p className="truncate text-[11px] text-white/55">
+                  {browserStatus.title}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         {!currentTask ? (
           <p className="text-sm text-white/65">
             No active task. Gryphon is standing by.

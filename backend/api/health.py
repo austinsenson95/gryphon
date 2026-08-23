@@ -55,6 +55,7 @@ async def health_tools(request: Request) -> dict:
             "name": tool.name,
             "description": tool.description,
             "permission": tool.permission,
+            "category": state.registry.category_of(tool),
             "exposed_to_llm": tool.permission != "privileged",
         }
         for tool in state.registry.list()
