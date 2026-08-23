@@ -7,6 +7,7 @@ mock when its settings are absent.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -14,8 +15,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 APP_VERSION = "0.1.0"
 
-# Project root is two directories above this file (backend/core/config.py)
-_ENV_FILE = Path(__file__).resolve().parents[2] / "config" / ".env"
+def _resolve_env_file() -> Path:
+    """Resolve credentials outside packaged code when desktop supplies a path."""
+    configured = os.environ.get("GRIFFIN_CONFIG_FILE", "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    # Project root is two directories above this file (backend/core/config.py).
+    return Path(__file__).resolve().parents[2] / "config" / ".env"
+
+
+_ENV_FILE = _resolve_env_file()
 
 
 class Settings(BaseSettings):
@@ -107,11 +116,14 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        """Explicit allowed origins: FRONTEND_ORIGIN + local Vite dev servers."""
+        """Explicit browser, Vite, and bundled Tauri dashboard origins."""
         origins = {
             self.frontend_origin,
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "http://tauri.localhost",
+            "tauri://localhost",
+            "tauri://localhost:5173",
         }
         return sorted(origins)
 

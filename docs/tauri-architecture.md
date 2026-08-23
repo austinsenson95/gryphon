@@ -21,6 +21,8 @@ Runtime phases are `starting`, `ready`, `degraded`, `disconnected`, `restarting`
 
 Desktop SQLite data is stored in Tauri's per-user app-data directory. Browser development retains the existing repository-relative configuration.
 
+For the current local rollout, the sidecar reads credentials from the first available external config path: a parent-process `GRIFFIN_CONFIG_FILE`, the Tauri app-config `.env`, or this checkout's `config/.env`. The `.env` contents are never embedded in `Griffin.app`. Before distributing the app to another Mac, copy the configuration to the app-config location or set `GRIFFIN_CONFIG_FILE`; the source-checkout fallback is intentionally a development convenience.
+
 ## Native trust boundary
 
 The main-window capability grants only core event and window APIs. Shell, filesystem, process, notification, and opener plugins are not exposed to frontend JavaScript. Rust itself implements these validated commands:

@@ -82,6 +82,18 @@ fn should_spawn(healthy: bool) -> bool {
     !healthy
 }
 
+fn project_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("Griffin repository root")
+        .to_path_buf()
+}
+
+fn first_existing_config(paths: impl IntoIterator<Item = PathBuf>) -> Option<PathBuf> {
+    paths.into_iter().find(|path| path.is_file())
+}
+
 impl RuntimeManager {
     pub fn snapshot(&self) -> RuntimeSnapshot {
         self.inner
@@ -128,12 +140,7 @@ impl RuntimeManager {
     }
 
     fn development_python() -> Result<PathBuf, String> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(|path| path.parent())
-            .ok_or_else(|| "could not resolve the Griffin repository root".to_string())?
-            .to_path_buf();
-        let venv_python = root.join(".venv/bin/python");
+        let venv_python = project_root().join(".venv/bin/python");
         if venv_python.is_file() {
             Ok(venv_python)
         } else {
@@ -155,6 +162,16 @@ impl RuntimeManager {
         std::fs::create_dir_all(&app_data)
             .map_err(|error| format!("could not create Griffin app data: {error}"))?;
         let database_url = format!("sqlite:///{}", app_data.join("griffin.db").display());
+        let config_file = first_existing_config([
+            std::env::var_os("GRIFFIN_CONFIG_FILE")
+                .map(PathBuf::from)
+                .unwrap_or_default(),
+            app.path()
+                .app_config_dir()
+                .map(|path| path.join(".env"))
+                .unwrap_or_default(),
+            project_root().join("config/.env"),
+        ]);
         let args = ["--host", BACKEND_HOST, "--port", "8000"];
         let command = if cfg!(debug_assertions) {
             let python = Self::development_python()?;
@@ -162,23 +179,25 @@ impl RuntimeManager {
                 .command(python)
                 .args(["-m", "backend.desktop_entry"])
                 .args(args)
-                .current_dir(
-                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                        .parent()
-                        .and_then(|path| path.parent())
-                        .expect("repository root"),
-                )
+                .current_dir(project_root())
         } else {
             app.shell()
                 .sidecar("griffin-kernel")
                 .map_err(|error| format!("could not resolve packaged Griffin sidecar: {error}"))?
                 .args(args)
         };
-        command
+        let mut command = command
             .env("GRIFFIN_RUNTIME_MODE", "desktop")
             .env("HOST", BACKEND_HOST)
             .env("PORT", BACKEND_PORT.to_string())
-            .env("DATABASE_URL", database_url)
+            .env("DATABASE_URL", database_url);
+        if let Some(path) = config_file {
+            log::info!("using external Griffin config at {}", path.display());
+            command = command.env("GRIFFIN_CONFIG_FILE", path);
+        } else {
+            log::warn!("no external Griffin .env found; backend will use safe defaults");
+        }
+        command
             .spawn()
             .map_err(|error| format!("could not spawn Griffin Kernel: {error}"))
     }
@@ -350,7 +369,9 @@ pub async fn restart_backend(
 
 #[cfg(test)]
 mod tests {
-    use super::{should_spawn, RuntimeManager, RuntimePhase};
+    use std::path::PathBuf;
+
+    use super::{first_existing_config, should_spawn, RuntimeManager, RuntimePhase};
 
     #[test]
     fn healthy_backend_is_reused() {
@@ -364,5 +385,15 @@ mod tests {
         assert_eq!(snapshot.state, RuntimePhase::Starting);
         assert!(!snapshot.owned);
         assert!(snapshot.pid.is_none());
+    }
+
+    #[test]
+    fn external_config_uses_the_first_existing_file() {
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let selected = first_existing_config([
+            PathBuf::from("/definitely/missing/griffin.env"),
+            manifest.clone(),
+        ]);
+        assert_eq!(selected, Some(manifest));
     }
 }
