@@ -42,6 +42,8 @@ describe("Desktop phone remote setup", () => {
 
     expect(await screen.findByTestId("desktop-pairing-code")).toHaveTextContent("482913")
     expect(screen.getByText(/http:\/\/192\.168\.1\.20:\d+\/\?mode=phone/)).toBeInTheDocument()
+    expect(screen.getByLabelText("Scan to pair this phone")).toBeInTheDocument()
+    expect(screen.getByText(/Scan to pair/)).toBeInTheDocument()
     expect(startRemoteSession).toHaveBeenCalledTimes(1)
   })
 })

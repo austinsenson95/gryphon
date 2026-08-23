@@ -74,6 +74,7 @@ function PairingView({ status, onStatus }: { status: RemoteStatus | null; onStat
   const [code, setCode] = useState(new URLSearchParams(location.search).get("pair") ?? "")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const pairedCodeRef = useRef<string | null>(null)
 
   const pair = async () => {
     setBusy(true)
@@ -87,6 +88,12 @@ function PairingView({ status, onStatus }: { status: RemoteStatus | null; onStat
       setBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (code.length !== 6 || pairedCodeRef.current === code) return
+    pairedCodeRef.current = code
+    void pair()
+  }, [code])
 
   return (
     <div className="mx-auto grid w-full max-w-5xl gap-5 lg:grid-cols-[1.1fr_.9fr]">

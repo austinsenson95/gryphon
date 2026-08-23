@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Check, Copy, Link2, MonitorSmartphone, Power, RefreshCw, ShieldCheck } from "lucide-react"
+import { QRCodeSVG } from "qrcode.react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -32,8 +33,11 @@ export function DesktopRemoteCard() {
   const phoneUrl = useMemo(() => {
     const host = status?.lan_address ?? location.hostname
     const port = location.port || "5173"
-    return `${location.protocol}//${host}:${port}/?mode=phone`
-  }, [status?.lan_address])
+    const url = new URL(`${location.protocol}//${host}:${port}/`)
+    url.searchParams.set("mode", "phone")
+    if (pairingCode) url.searchParams.set("pair", pairingCode)
+    return url.toString()
+  }, [pairingCode, status?.lan_address])
 
   const start = async () => {
     setBusy(true)
@@ -71,7 +75,7 @@ export function DesktopRemoteCard() {
       <GlassCardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <GlassCardTitle className="flex items-center gap-2"><MonitorSmartphone className="h-5 w-5 text-cyan-200" />Phone remote</GlassCardTitle>
+            <GlassCardTitle className="flex items-center gap-2"><MonitorSmartphone className="griffin-accent-icon h-5 w-5" />Phone remote</GlassCardTitle>
             <GlassCardDescription className="mt-1 text-muted-foreground">Generate a private code for your phone.</GlassCardDescription>
           </div>
           <span className="rounded-full border border-white/10 bg-white/[.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.16em] text-slate-300">
@@ -81,12 +85,18 @@ export function DesktopRemoteCard() {
       </GlassCardHeader>
       <GlassCardContent>
         {pairingCode && status?.state !== "paired" ? (
-          <div className="rounded-2xl border border-amber-200/20 bg-amber-300/[.06] p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-amber-100/65">Enter this code on your phone</p>
-            <p data-testid="desktop-pairing-code" className="mt-2 font-mono text-4xl font-semibold tracking-[.2em] text-amber-200">{pairingCode}</p>
+          <div className="griffin-qr-pairing rounded-2xl p-4">
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 rounded-xl bg-white p-2 shadow-sm"><QRCodeSVG value={phoneUrl} size={112} level="M" includeMargin aria-label="Scan to pair this phone" /></div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[.2em]">Scan to pair</p>
+                <p className="mt-1 text-xs leading-5">Open your phone camera and scan this code. Griffin will open and connect using this session&apos;s passkey.</p>
+                <p data-testid="desktop-pairing-code" className="mt-3 font-mono text-3xl font-semibold tracking-[.15em]">{pairingCode}</p>
+              </div>
+            </div>
             <div className="mt-4 flex items-center gap-2">
-              <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-cyan-100/70">{phoneUrl}</p>
-              <Button variant="outline" size="icon" aria-label="Copy phone link" onClick={copyLink}>{copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}</Button>
+              <p className="min-w-0 flex-1 truncate font-mono text-[11px]">{phoneUrl}</p>
+              <Button variant="outline" size="icon" aria-label="Copy phone link" onClick={copyLink}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button>
             </div>
           </div>
         ) : status?.state === "paired" ? (
