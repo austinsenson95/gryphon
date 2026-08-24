@@ -12,7 +12,7 @@ function newId(): string { return typeof crypto !== "undefined" && "randomUUID" 
 type VoiceState = "idle" | "listening" | "transcribing"
 
 export function ChatPanel() {
-  const { sessionId, setSessionId, avatarState } = useGriffinEvents()
+  const { sessionId, setSessionId, avatarState, events } = useGriffinEvents()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
@@ -23,20 +23,52 @@ export function ChatPanel() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const handledConversationEvents = useRef(new Set<string>())
+  const pendingLocalText = useRef<string[]>([])
   useEffect(() => { if (textInputOpen) inputRef.current?.focus() }, [textInputOpen])
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight }, [messages])
   useEffect(() => () => { if (recorderRef.current?.state !== "inactive") recorderRef.current?.stop() }, [])
-  const pushMessage = (role: ChatMessage["role"], content: string, id?: string) => setMessages((previous) => [...previous, { id: id ?? newId(), role, content, createdAt: new Date().toISOString() }])
+  const pushMessage = (role: ChatMessage["role"], content: string, id?: string) => setMessages((previous) => {
+    const messageId = id ?? newId()
+    if (previous.some((message) => message.id === messageId)) return previous
+    return [...previous, { id: messageId, role, content, createdAt: new Date().toISOString() }]
+  })
+  useEffect(() => {
+    // Phone commands run through the same backend but do not pass through this
+    // component's submit handlers. Mirror their persisted event messages into
+    // the Mac conversation so Griffin's response is visible on both devices.
+    ;[...events].reverse().forEach((event) => {
+      if (handledConversationEvents.current.has(event.id)) return
+      if (event.type === "MESSAGE_RECEIVED") {
+        const content = typeof event.data.content === "string" ? event.data.content : ""
+        if (!content) return
+        handledConversationEvents.current.add(event.id)
+        const localIndex = pendingLocalText.current.indexOf(content)
+        if (localIndex >= 0) {
+          pendingLocalText.current.splice(localIndex, 1)
+          return
+        }
+        const backendId = typeof event.data.message_id === "string" ? event.data.message_id : event.id
+        pushMessage("user", content, event.run_id ? `user:${event.run_id}` : backendId)
+      } else if (event.type === "AGENT_RESPONSE") {
+        const response = typeof event.data.response === "string" ? event.data.response : ""
+        if (!response) return
+        handledConversationEvents.current.add(event.id)
+        const backendId = typeof event.data.message_id === "string" ? event.data.message_id : event.id
+        pushMessage("assistant", response, backendId)
+      }
+    })
+  }, [events])
   const submit = async () => {
     const text = draft.trim(); if (!text || sending) return
-    setSending(true); setDraft(""); setTextInputOpen(false); pushMessage("user", text)
+    setSending(true); setDraft(""); setTextInputOpen(false); pendingLocalText.current.push(text); pushMessage("user", text)
     try { const response = await sendChat(text, sessionId); setSessionId(response.session_id); pushMessage("assistant", response.response, response.message_id) }
     catch (error) { pushMessage("assistant", error instanceof Error ? error.message : "Griffin could not complete that request.") }
     finally { setSending(false) }
   }
   const submitVoice = async (audio: Blob) => {
     setVoiceState("transcribing")
-    try { const response = await sendVoice(audio, sessionId); setSessionId(response.session_id); pushMessage("user", response.transcript); pushMessage("assistant", response.response, response.message_id) }
+    try { const response = await sendVoice(audio, sessionId); setSessionId(response.session_id); pushMessage("user", response.transcript, response.run_id ? `user:${response.run_id}` : undefined); pushMessage("assistant", response.response, response.message_id) }
     catch (error) { pushMessage("assistant", error instanceof Error ? error.message : "Voice input is unavailable.") }
     finally { setVoiceState("idle") }
   }

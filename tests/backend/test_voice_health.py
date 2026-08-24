@@ -70,6 +70,17 @@ async def test_voice_empty_body_rejected(client):
     assert response.status_code == 422
 
 
+async def test_voice_rejects_video_payloads(client, app):
+    app.state.griffin.stt = FakeSTT("This must not run")
+    response = await client.post(
+        "/api/voice",
+        content=b"fake-video",
+        headers={"Content-Type": "video/quicktime"},
+    )
+    assert response.status_code == 415
+    assert response.json()["error"]["code"] == "UNSUPPORTED_AUDIO"
+
+
 async def test_health_tools_lists_registry(client):
     response = await client.get("/api/health/tools")
     assert response.status_code == 200

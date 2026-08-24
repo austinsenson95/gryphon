@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.core.agent import Agent
-from backend.core.state import get_state
+from backend.core.state import AppState, get_state
 from backend.events.events import EventType, new_event
 from backend.services.message_service import MessageService
 from backend.stt.base import STTError, STTUnavailableError
@@ -28,6 +28,8 @@ _MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 25 MB cap
 _CONTENT_TYPE_SUFFIX = {
     "audio/webm": ".webm",
     "audio/mp4": ".mp4",
+    "audio/m4a": ".m4a",
+    "audio/x-m4a": ".m4a",
     "audio/mpeg": ".mp3",
     "audio/wav": ".wav",
     "audio/x-wav": ".wav",
@@ -57,6 +59,11 @@ def _error(code: str, message: str, status: int) -> JSONResponse:
 @router.post("/voice", response_model=None)
 async def voice(request: Request):
     state = get_state(request)
+    return await run_voice(request, state)
+
+
+async def run_voice(request: Request, state: AppState):
+    """Transcribe request audio and execute it through Griffin's agent."""
 
     audio = await request.body()
     if not audio:
@@ -65,6 +72,12 @@ async def voice(request: Request):
         return _error("VALIDATION_ERROR", "Audio payload is too large (max 25 MB).", 422)
 
     content_type = (request.headers.get("content-type") or "").split(";")[0].strip()
+    if content_type and not content_type.startswith("audio/"):
+        return _error(
+            "UNSUPPORTED_AUDIO",
+            "Voice input accepts microphone audio only; video uploads are not allowed.",
+            415,
+        )
     session_id = request.headers.get("x-session-id") or None
 
     await state.bus.publish(

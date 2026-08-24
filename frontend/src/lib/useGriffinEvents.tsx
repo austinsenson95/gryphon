@@ -101,6 +101,15 @@ function toolArgsOf(event: GriffinEvent): Record<string, unknown> | undefined {
   return undefined
 }
 
+function errorMessageOf(event: GriffinEvent, fallback: string): string {
+  if (typeof event.data.error === "string") return event.data.error
+  if (event.data.error && typeof event.data.error === "object" && !Array.isArray(event.data.error)) {
+    const message = (event.data.error as Record<string, unknown>).message
+    if (typeof message === "string") return message
+  }
+  return asString(event.data.message) ?? fallback
+}
+
 export function GriffinProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<GriffinEvent[]>([])
   const [connectionStatus, setConnectionStatus] =
@@ -152,7 +161,7 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const handleEvent = useCallback(
-    (event: GriffinEvent) => {
+    (event: GriffinEvent, isReplay = false) => {
       if (seenIds.current.has(event.id)) return
       seenIds.current.add(event.id)
 
@@ -193,28 +202,43 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
               ? {
                   ...prev,
                   status: "failed",
-                  result: asString(event.data.error) ?? "Task failed",
+                  result: errorMessageOf(event, "Task failed"),
                 }
               : prev,
           )
-          pushNotification({
-            id: `notif_${event.id}`,
-            level: "error",
-            title: "Task failed",
-            body: asString(event.data.error) ?? "Griffin could not finish the task.",
-          })
+          if (!isReplay) {
+            pushNotification({
+              id: `notif_${event.id}`,
+              level: "error",
+              title: "Task failed",
+              body: errorMessageOf(event, "Griffin could not finish the task."),
+            })
+          }
+          break
+        }
+        case "STT_FAILED": {
+          if (!isReplay) {
+            pushNotification({
+              id: `notif_${event.id}`,
+              level: "error",
+              title: "Voice input failed",
+              body: errorMessageOf(event, "Griffin could not understand the recording."),
+            })
+          }
           break
         }
         case "PERMISSION_REQUIRED":
         case "USER_APPROVAL_REQUIRED": {
-          pushNotification({
-            id: `notif_${event.id}`,
-            level: "warning",
-            title: "Approval required",
-            body:
-              asString(event.data.message) ??
-              `Griffin wants to run ${toolNameOf(event)}.`,
-          })
+          if (!isReplay) {
+            pushNotification({
+              id: `notif_${event.id}`,
+              level: "warning",
+              title: "Approval required",
+              body:
+                asString(event.data.message) ??
+                `Griffin wants to run ${toolNameOf(event)}.`,
+            })
+          }
           break
         }
         case "BROWSER_NAVIGATION":
@@ -384,13 +408,16 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
     getEvents(50)
       .then((recent) => {
         if (cancelled) return
-        ;[...recent].reverse().forEach(handleEvent)
+        // /api/events is chronological. Apply oldest -> newest so derived UI
+        // state reflects the latest event; reversing this left Griffin showing
+        // stale historical failures after a page load.
+        recent.forEach((event) => handleEvent(event, true))
       })
       .catch(() => {
         // backend not up yet — WS reconnect loop keeps trying
       })
     const socket = createGriffinSocket({
-      onEvent: handleEvent,
+      onEvent: (event) => handleEvent(event),
       onStatus: setConnectionStatus,
     })
     return () => {

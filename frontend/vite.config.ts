@@ -1,12 +1,26 @@
 import path from "path"
+import fs from "fs"
 import { defineConfig } from "vitest/config"
 import react from "@vitejs/plugin-react"
 
 // https://vite.dev/config/
+const tlsCert = process.env.GRIFFIN_TLS_CERT_FILE
+const tlsKey = process.env.GRIFFIN_TLS_KEY_FILE
+const backendProxyTarget = process.env.GRIFFIN_BACKEND_PROXY_TARGET ?? "http://127.0.0.1:8000"
+const websocketProxyTarget = backendProxyTarget.replace(/^http/, "ws")
+
 export default defineConfig({
   plugins: [react()],
   server: {
     fs: { allow: [path.resolve(__dirname, "..")] },
+    https: tlsCert && tlsKey ? {
+      cert: fs.readFileSync(tlsCert),
+      key: fs.readFileSync(tlsKey),
+    } : undefined,
+    proxy: {
+      "/api": { target: backendProxyTarget, changeOrigin: true },
+      "/ws": { target: websocketProxyTarget, ws: true },
+    },
   },
   resolve: {
     alias: {

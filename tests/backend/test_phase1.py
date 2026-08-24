@@ -230,6 +230,12 @@ async def test_mock_provider_maps_phase1_commands():
     call = await plan("Search the web for the latest AI agent frameworks")
     assert call.name == "desktop.search_web"
 
+    call = await plan("Search YouTube for local-first AI assistants")
+    assert (call.name, call.arguments) == (
+        "desktop.search_youtube",
+        {"query": "local-first AI assistants"},
+    )
+
     call = await plan("Start my development environment")
     assert (call.name, call.arguments) == ("workflow.run", {"name": "start_development"})
 

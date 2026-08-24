@@ -33,6 +33,14 @@ _GO_TO_SITE_RE = re.compile(
 _SEARCH_RE = re.compile(
     r"search(?:\s+(?:the\s+web\s+)?for)?\s+(.+)", re.IGNORECASE | re.DOTALL
 )
+_YOUTUBE_SEARCH_RE = re.compile(
+    r"(?:open|go\s+to)\s+youtube\s+(?:(?:and\s+)?(?:then\s+)?)?"
+    r"search(?:\s+youtube)?(?:\s+for)?\s+(.+)",
+    re.IGNORECASE | re.DOTALL,
+)
+_SEARCH_YOUTUBE_RE = re.compile(
+    r"search\s+youtube(?:\s+for)?\s+(.+)", re.IGNORECASE | re.DOTALL
+)
 _OPEN_APP_RE = re.compile(
     r"open\s+(?:my\s+)?(safari|chrome|google chrome|firefox|arc|vs\s*code|"
     r"visual studio code|terminal|iterm|notes|calendar|finder|slack|spotify)\b",
@@ -128,12 +136,24 @@ class MockLLMProvider(LLMProvider):
             return LLMResponse(content=self._synthesize_tool_answer(messages))
 
         user_text = next(
-            (m.content for m in reversed(messages) if m.role == "user"), ""
+            (
+                m.content
+                for m in reversed(messages)
+                if m.role == "user"
+                and not m.content.startswith("CURRENT TASK STATE:")
+            ),
+            "",
         )
         lowered = user_text.lower()
 
         if "time" in lowered:
             return LLMResponse(tool_calls=[_tool_call("system.get_time", {})])
+
+        # A site-scoped search is one semantic action. Keep it together rather
+        # than splitting it into "open YouTube" plus a generic web search.
+        youtube = self._plan_youtube_search(user_text)
+        if youtube:
+            return LLMResponse(tool_calls=[_tool_call(*youtube)])
 
         # Compound multi-action requests (Phase 1): one tool call per clause.
         compound = self._plan_compound(user_text)
@@ -172,6 +192,10 @@ class MockLLMProvider(LLMProvider):
     def _plan_single(self, text: str) -> tuple[str, dict] | None:
         """Resolve one clause to a single (tool, args) plan, or None."""
         lowered = text.lower().strip()
+
+        youtube = self._plan_youtube_search(text)
+        if youtube:
+            return youtube
 
         match = _WORKFLOW_RE.search(text)
         if match and any(k in lowered for k in ("start", "run", "workflow")):
@@ -218,6 +242,14 @@ class MockLLMProvider(LLMProvider):
                     return ("desktop.search_web", {"query": query})
 
         return None
+
+    @staticmethod
+    def _plan_youtube_search(text: str) -> tuple[str, dict] | None:
+        match = _YOUTUBE_SEARCH_RE.search(text) or _SEARCH_YOUTUBE_RE.search(text)
+        if not match:
+            return None
+        query = match.group(1).strip().rstrip("?.!")
+        return ("desktop.search_youtube", {"query": query}) if query else None
 
     # ------------------------------------------------------------------ synthesis
 
@@ -271,6 +303,8 @@ class MockLLMProvider(LLMProvider):
             )
         if name == "desktop.search_web":
             return f"I opened a web search for \"{data.get('query', '')}\"."
+        if name == "desktop.search_youtube":
+            return f"I opened YouTube results for \"{data.get('query', '')}\"."
         if name in ("desktop.open_application", "desktop.open_app"):
             return f"I opened {data.get('application', 'the application')}."
         if name == "desktop.close_app":

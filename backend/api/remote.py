@@ -8,6 +8,8 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
+from backend.api.chat import ChatRequest, ChatResponse, run_chat
+from backend.api.voice import run_voice
 from backend.core.state import AppState, get_state
 from backend.events.events import EventType, new_event
 
@@ -21,7 +23,7 @@ class PairRequest(BaseModel):
 class InputRequest(BaseModel):
     type: Literal[
         "tap", "double_tap", "secondary_tap", "move", "scroll", "text", "key",
-        "enter_fullscreen", "exit_fullscreen",
+        "enter_fullscreen", "exit_fullscreen", "select_window", "move_window", "release_window", "volume",
     ]
     x: float | None = Field(default=None, ge=0, le=1)
     y: float | None = Field(default=None, ge=0, le=1)
@@ -30,6 +32,7 @@ class InputRequest(BaseModel):
     text: str | None = Field(default=None, max_length=2000)
     key: str | None = Field(default=None, max_length=32)
     modifiers: list[str] = Field(default_factory=list, max_length=4)
+    volume: int | None = Field(default=None, ge=0, le=100)
 
 
 class AppRequest(BaseModel):
@@ -132,12 +135,59 @@ async def remote_input(
             raise ValueError("Text input cannot be empty.")
         if body.type == "key" and not body.key:
             raise ValueError("Key input requires a key name.")
+        if body.type == "volume" and body.volume is None:
+            raise ValueError("Volume input requires a level from 0 to 100.")
+        if body.type == "move_window" and not (body.dx or body.dy):
+            raise ValueError("Window movement requires a horizontal or vertical distance.")
         await state.remote.adapter.perform(action)
     except PermissionError as exc:
         raise HTTPException(401, detail={"code": "REMOTE_UNAUTHORIZED", "message": str(exc)}) from exc
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(400, detail={"code": "REMOTE_INPUT_FAILED", "message": str(exc)}) from exc
     return {"accepted": True}
+
+
+@router.get("/volume")
+async def remote_volume(
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> dict:
+    try:
+        state.remote.authenticate(_bearer(authorization))
+        volume = await state.remote.adapter.get_output_volume()
+    except PermissionError as exc:
+        raise HTTPException(401, detail={"code": "REMOTE_UNAUTHORIZED", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, detail={"code": "VOLUME_UNAVAILABLE", "message": str(exc)}) from exc
+    return {"volume": volume}
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def remote_chat(
+    body: ChatRequest,
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> ChatResponse:
+    """Run an agent command from a paired phone remote."""
+    try:
+        state.remote.authenticate(_bearer(authorization))
+    except PermissionError as exc:
+        raise HTTPException(401, detail={"code": "REMOTE_UNAUTHORIZED", "message": str(exc)}) from exc
+    return await run_chat(body, state)
+
+
+@router.post("/voice", response_model=None)
+async def remote_voice(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+):
+    """Run an authenticated phone recording through local STT and Griffin."""
+    try:
+        state.remote.authenticate(_bearer(authorization))
+    except PermissionError as exc:
+        raise HTTPException(401, detail={"code": "REMOTE_UNAUTHORIZED", "message": str(exc)}) from exc
+    return await run_voice(request, state)
 
 
 @router.post("/permissions/accessibility")

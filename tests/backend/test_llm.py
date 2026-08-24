@@ -38,6 +38,23 @@ async def test_mock_search_rule(mock_provider):
     assert response.tool_calls[0].arguments["query"] == "local news"
 
 
+async def test_mock_youtube_search_stays_site_scoped(mock_provider):
+    response = await mock_provider.generate(
+        _user("Open YouTube and search for ambient focus music")
+    )
+    assert len(response.tool_calls) == 1
+    assert response.tool_calls[0].name == "desktop.search_youtube"
+    assert response.tool_calls[0].arguments == {"query": "ambient focus music"}
+
+
+async def test_mock_ignores_injected_task_state_when_planning(mock_provider):
+    response = await mock_provider.generate(
+        _user("Open YouTube and search for ambient focus music")
+        + [LLMMessage(role="user", content="CURRENT TASK STATE:\ngoal: internal note")]
+    )
+    assert response.tool_calls[0].arguments == {"query": "ambient focus music"}
+
+
 async def test_mock_conversational_fallback_mentions_griffin(mock_provider):
     response = await mock_provider.generate(_user("hello there"))
     assert response.tool_calls == []

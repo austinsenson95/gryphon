@@ -5,17 +5,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { RemoteCockpit } from "@/remote/RemoteCockpit"
 import {
   getRemoteStatus,
+  getRemoteVolume,
   launchRemoteApplication,
+  sendRemoteCommand,
   sendRemoteInput,
+  sendRemoteVoice,
 } from "@/lib/api"
 import type { RemoteStatus } from "@/lib/types"
 
 vi.mock("@/lib/api", () => ({
   getRemoteStatus: vi.fn(),
   getRemoteFrame: vi.fn().mockResolvedValue(new Blob(["frame"], { type: "image/jpeg" })),
+  getRemoteVolume: vi.fn(),
   launchRemoteApplication: vi.fn(),
   pairRemote: vi.fn(),
+  sendRemoteCommand: vi.fn(),
   sendRemoteInput: vi.fn(),
+  sendRemoteVoice: vi.fn(),
   stopRemoteSession: vi.fn(),
 }))
 
@@ -33,8 +39,27 @@ describe("Phone remote controls", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sessionStorage.setItem("griffin.remote.token", "paired-token")
+    sessionStorage.removeItem("griffin.remote.chat.session")
     vi.mocked(getRemoteStatus).mockResolvedValue(pairedStatus)
+    vi.mocked(getRemoteVolume).mockResolvedValue({ volume: 42 })
     vi.mocked(sendRemoteInput).mockResolvedValue({ accepted: true })
+    vi.mocked(sendRemoteCommand).mockResolvedValue({
+      run_id: "run-phone",
+      message_id: "message-phone",
+      task_id: "task-phone",
+      session_id: "session-phone",
+      response: "I opened YouTube results for \"ambient focus music\".",
+      tool_calls: [{ tool: "desktop.search_youtube" }],
+    })
+    vi.mocked(sendRemoteVoice).mockResolvedValue({
+      run_id: "run-voice-phone",
+      message_id: "message-voice-phone",
+      task_id: "task-voice-phone",
+      session_id: "session-voice-phone",
+      transcript: "Open my calendar",
+      response: "I opened Calendar.",
+      tool_calls: [{ tool: "desktop.open_application" }],
+    })
     vi.mocked(launchRemoteApplication).mockResolvedValue({
       opened: true,
       app: "hermes",
@@ -75,6 +100,66 @@ describe("Phone remote controls", () => {
 
     await user.click(screen.getByRole("button", { name: "Open Hermes" }))
     expect(launchRemoteApplication).toHaveBeenCalledWith("paired-token", "hermes")
+  })
+
+  it("selects and moves the active Mac window from the mirrored touch surface", async () => {
+    const user = userEvent.setup()
+    render(<RemoteCockpit />)
+    const surface = await screen.findByLabelText("Mac trackpad surface")
+
+    await user.click(screen.getByRole("button", { name: "Move active window" }))
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "select_window" },
+    ))
+    await screen.findByText("Drag to move the selected window")
+
+    fireEvent.pointerDown(surface, { clientX: 80, clientY: 60, pointerId: 12 })
+    fireEvent.pointerMove(surface, { clientX: 100, clientY: 70, pointerId: 12 })
+    fireEvent.pointerUp(surface, { clientX: 100, clientY: 70, pointerId: 12 })
+
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "move_window", dx: 1, dy: 1 },
+    ))
+    expect(screen.getByText("Drag to move the selected window")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Exit window move mode" }))
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "release_window" },
+    ))
+    expect(screen.queryByText("Drag to move the selected window")).not.toBeInTheDocument()
+  })
+
+  it("drops queued window movement as soon as Move mode is exited", async () => {
+    const user = userEvent.setup()
+    let finishMove!: (value: { accepted: boolean }) => void
+    const heldMove = new Promise<{ accepted: boolean }>((resolve) => { finishMove = resolve })
+    vi.mocked(sendRemoteInput).mockImplementation(async (_token, input) => {
+      if (input.type === "move_window") return heldMove
+      return { accepted: true }
+    })
+    render(<RemoteCockpit />)
+    const surface = await screen.findByLabelText("Mac trackpad surface")
+
+    await user.click(screen.getByRole("button", { name: "Move active window" }))
+    await screen.findByText("Drag to move the selected window")
+    fireEvent.pointerDown(surface, { clientX: 60, clientY: 50, pointerId: 13 })
+    fireEvent.pointerMove(surface, { clientX: 100, clientY: 70, pointerId: 13 })
+    fireEvent.pointerMove(surface, { clientX: 140, clientY: 90, pointerId: 13 })
+
+    await waitFor(() => expect(
+      vi.mocked(sendRemoteInput).mock.calls.filter(([, input]) => input.type === "move_window"),
+    ).toHaveLength(1))
+    await user.click(screen.getByRole("button", { name: "Pointer", exact: true }))
+    finishMove({ accepted: true })
+
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "release_window" },
+    ))
+    expect(vi.mocked(sendRemoteInput).mock.calls.filter(([, input]) => input.type === "move_window")).toHaveLength(1)
   })
 
   it("opens the adaptive landscape cockpit without hiding its shortcuts", async () => {
@@ -176,6 +261,21 @@ describe("Phone remote controls", () => {
     expect(slider).toHaveValue("0")
   })
 
+  it("loads and changes the Mac output volume", async () => {
+    render(<RemoteCockpit />)
+    const slider = await screen.findByRole("slider", { name: "Mac output volume" })
+
+    expect(getRemoteVolume).toHaveBeenCalledWith("paired-token")
+    await waitFor(() => expect(slider).toHaveValue("42"))
+    fireEvent.change(slider, { target: { value: "68" } })
+
+    expect(screen.getByText("68%")).toBeInTheDocument()
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "volume", volume: 68 },
+    ))
+  })
+
   it("sends phone text and confirms delivery before clearing the field", async () => {
     const user = userEvent.setup()
     render(<RemoteCockpit />)
@@ -190,6 +290,84 @@ describe("Phone remote controls", () => {
     ))
     expect(await screen.findByRole("status")).toHaveTextContent("Text sent to Mac")
     expect(input).toHaveValue("")
+  })
+
+  it("sends an authenticated text command to Griffin and shows the result", async () => {
+    const user = userEvent.setup()
+    render(<RemoteCockpit />)
+
+    const input = await screen.findByRole("textbox", { name: "Message Griffin from phone" })
+    await user.type(input, "Open YouTube and search for ambient focus music")
+    await user.click(screen.getByRole("button", { name: "Send command to Griffin" }))
+
+    await waitFor(() => expect(sendRemoteCommand).toHaveBeenCalledWith(
+      "paired-token",
+      "Open YouTube and search for ambient focus music",
+      null,
+    ))
+    expect(await screen.findByRole("status", { name: "Griffin response" })).toHaveTextContent(
+      "I opened YouTube results for \"ambient focus music\".",
+    )
+    expect(input).toHaveValue("")
+    expect(sessionStorage.getItem("griffin.remote.chat.session")).toBe("session-phone")
+  })
+
+  it("records a phone voice command and sends it through Griffin", async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: true })
+    const stopTrack = vi.fn()
+    const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }], getVideoTracks: () => [] })
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia },
+    })
+    class FakeMediaRecorder {
+      state: RecordingState = "inactive"
+      mimeType = "audio/webm"
+      ondataavailable: ((event: BlobEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      onstop: (() => void) | null = null
+      constructor(_stream: MediaStream) {}
+      start() { this.state = "recording" }
+      stop() {
+        this.state = "inactive"
+        this.ondataavailable?.({ data: new Blob(["voice"], { type: this.mimeType }) } as BlobEvent)
+        this.onstop?.()
+      }
+    }
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder)
+    render(<RemoteCockpit />)
+
+    await user.click(await screen.findByRole("button", { name: "Start phone voice command" }))
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true },
+      video: false,
+    })
+    expect(await screen.findByText(/Listening on this phone/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Stop phone voice command" }))
+
+    await waitFor(() => expect(sendRemoteVoice).toHaveBeenCalledWith(
+      "paired-token",
+      expect.objectContaining({ type: "audio/webm" }),
+      null,
+    ))
+    expect(await screen.findByText("Heard: Open my calendar")).toBeInTheDocument()
+    expect(screen.getByRole("status", { name: "Griffin response" })).toHaveTextContent("I opened Calendar.")
+    expect(sessionStorage.getItem("griffin.remote.chat.session")).toBe("session-voice-phone")
+    expect(stopTrack).toHaveBeenCalled()
+  })
+
+  it("never opens video capture when LAN HTTP blocks live microphone access", async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: false })
+    render(<RemoteCockpit />)
+    const voiceButton = await screen.findByRole("button", { name: "Start phone voice command" })
+
+    await user.click(voiceButton)
+    expect(await screen.findByRole("alert")).toHaveTextContent("requires Griffin to be opened over trusted HTTPS")
+    expect(document.querySelector('input[type="file"]')).toBeNull()
+    expect(sendRemoteVoice).not.toHaveBeenCalled()
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: true })
   })
 
   it("keeps unsent phone text visible when Mac input fails", async () => {

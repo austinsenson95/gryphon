@@ -1,5 +1,7 @@
 """Remote session pairing and authorization tests."""
 
+import pytest
+
 from backend.remote.service import RemoteControlService
 from backend.remote.macos import MacRemoteAdapter
 
@@ -11,6 +13,7 @@ class FakeAdapter:
         self.actions = []
         self.opened_apps = []
         self.settings_opened = False
+        self.output_volume = 42
 
     def permissions(self):
         return {"screen_recording": True, "accessibility": True}
@@ -20,6 +23,9 @@ class FakeAdapter:
 
     async def perform(self, action):
         self.actions.append(action)
+
+    async def get_output_volume(self):
+        return self.output_volume
 
     async def open_application(self, names):
         self.opened_apps.append(names)
@@ -35,6 +41,11 @@ class FakeAdapter:
     async def open_accessibility_settings(self):
         self.settings_opened = True
         return self.permission_target()
+
+
+class FakeSTT:
+    async def transcribe(self, audio_path, content_type=""):
+        return "Open GitHub"
 
 
 def test_retina_pointer_mapping_uses_logical_display_bounds():
@@ -117,9 +128,72 @@ async def test_native_scroll_uses_pixel_units_and_both_axes():
     assert adapter._cg.posted == [(0, 201)]
 
 
-async def test_remote_pair_input_frame_and_stop(client, app):
+async def test_native_volume_does_not_require_accessibility():
+    adapter = MacRemoteAdapter()
+    adapter.supported = True
+    adapter.permissions = lambda: {"screen_recording": False, "accessibility": False}
+    changed = []
+
+    async def set_volume(volume):
+        changed.append(volume)
+
+    adapter._set_output_volume = set_volume
+    await adapter.perform({"type": "volume", "volume": 64})
+
+    assert changed == [64]
+
+
+async def test_native_volume_reads_current_output_level():
+    adapter = MacRemoteAdapter()
+    adapter.supported = True
+    scripts = []
+
+    async def run_script(script):
+        scripts.append(script)
+        return "37\n"
+
+    adapter._run_volume_script = run_script
+
+    assert await adapter.get_output_volume() == 37
+    assert scripts == ["output volume of (get volume settings)"]
+
+
+async def test_native_window_move_keeps_the_selected_app_target():
+    adapter = MacRemoteAdapter()
+    adapter.supported = True
+    adapter._cg = object()
+    adapter.permissions = lambda: {"screen_recording": True, "accessibility": True}
+    moved = []
+
+    async def select_window():
+        return 4321
+
+    async def move_window(pid, *, dx, dy):
+        moved.append((pid, dx, dy))
+
+    adapter._select_focused_window = select_window
+    adapter._move_selected_window = move_window
+
+    await adapter.perform({"type": "select_window"})
+    await adapter.perform({"type": "move_window", "dx": 24, "dy": -12})
+
+    assert moved == [(4321, 24, -12)]
+    await adapter.perform({"type": "release_window"})
+    assert adapter._selected_window_pid is None
+    with pytest.raises(RuntimeError, match="Move mode is no longer active"):
+        await adapter.perform({"type": "move_window", "dx": 1, "dy": 1})
+
+
+async def test_remote_pair_input_frame_and_stop(client, app, monkeypatch):
     adapter = FakeAdapter()
     app.state.griffin.remote = RemoteControlService(adapter=adapter)
+    opened_urls = []
+
+    async def fake_open(args):
+        opened_urls.append(args[-1])
+        return True, ""
+
+    monkeypatch.setattr("backend.tools.desktop._run_mac_open", fake_open)
 
     status = (await client.get("/api/remote")).json()
     assert status["state"] == "idle"
@@ -140,15 +214,59 @@ async def test_remote_pair_input_frame_and_stop(client, app):
 
     unauthorized = await client.post("/api/remote/input", json={"type": "tap", "x": 0.5, "y": 0.5})
     assert unauthorized.status_code == 401
+    assert (await client.get("/api/remote/volume")).status_code == 401
 
     headers = {"Authorization": f"Bearer {token}"}
+    volume = await client.get("/api/remote/volume", headers=headers)
+    assert volume.json() == {"volume": 42}
+    changed_volume = await client.post(
+        "/api/remote/input",
+        headers=headers,
+        json={"type": "volume", "volume": 68},
+    )
+    assert changed_volume.json() == {"accepted": True}
+    assert adapter.actions[-1]["volume"] == 68
+    unauthorized_chat = await client.post(
+        "/api/remote/chat",
+        json={"message": "Open YouTube and search for ambient focus music"},
+    )
+    assert unauthorized_chat.status_code == 401
+    unauthorized_voice = await client.post(
+        "/api/remote/voice",
+        content=b"\x00phone-audio",
+        headers={"Content-Type": "audio/wav"},
+    )
+    assert unauthorized_voice.status_code == 401
+
+    command = await client.post(
+        "/api/remote/chat",
+        headers=headers,
+        json={"message": "Open YouTube and search for ambient focus music"},
+    )
+    assert command.status_code == 200
+    command_body = command.json()
+    assert command_body["response"] == 'I opened YouTube results for "ambient focus music".'
+    assert command_body["tool_calls"][0]["tool"] == "desktop.search_youtube"
+    assert opened_urls == [
+        "https://www.youtube.com/results?search_query=ambient+focus+music"
+    ]
+
+    app.state.griffin.stt = FakeSTT()
+    voice = await client.post(
+        "/api/remote/voice",
+        content=b"\x00phone-audio",
+        headers={**headers, "Content-Type": "audio/wav", "X-Session-Id": command_body["session_id"]},
+    )
+    assert voice.status_code == 200
+    assert voice.json()["transcript"] == "Open GitHub"
+
     settings = await client.post("/api/remote/permissions/accessibility", headers=headers)
     assert settings.json() == {"opened": True, "permission_target": "/test/python3"}
     assert adapter.settings_opened is True
 
     accepted = await client.post("/api/remote/input", headers=headers, json={"type": "tap", "x": 0.5, "y": 0.25})
     assert accepted.json() == {"accepted": True}
-    assert adapter.actions == [{"type": "tap", "x": 0.5, "y": 0.25, "dx": 0, "dy": 0, "modifiers": []}]
+    assert adapter.actions[-1] == {"type": "tap", "x": 0.5, "y": 0.25, "dx": 0, "dy": 0, "modifiers": []}
 
     entered_fullscreen = await client.post("/api/remote/input", headers=headers, json={"type": "enter_fullscreen"})
     exited_fullscreen = await client.post("/api/remote/input", headers=headers, json={"type": "exit_fullscreen"})
@@ -158,6 +276,20 @@ async def test_remote_pair_input_frame_and_stop(client, app):
         {"type": "enter_fullscreen", "dx": 0, "dy": 0, "modifiers": []},
         {"type": "exit_fullscreen", "dx": 0, "dy": 0, "modifiers": []},
     ]
+
+    selected_window = await client.post("/api/remote/input", headers=headers, json={"type": "select_window"})
+    moved_window = await client.post(
+        "/api/remote/input", headers=headers, json={"type": "move_window", "dx": 18, "dy": -9}
+    )
+    assert selected_window.json() == {"accepted": True}
+    assert moved_window.json() == {"accepted": True}
+    assert adapter.actions[-2:] == [
+        {"type": "select_window", "dx": 0, "dy": 0, "modifiers": []},
+        {"type": "move_window", "dx": 18, "dy": -9, "modifiers": []},
+    ]
+    released_window = await client.post("/api/remote/input", headers=headers, json={"type": "release_window"})
+    assert released_window.json() == {"accepted": True}
+    assert adapter.actions[-1] == {"type": "release_window", "dx": 0, "dy": 0, "modifiers": []}
 
     frame = await client.get("/api/remote/frame", headers=headers)
     assert frame.status_code == 200
@@ -197,3 +329,17 @@ async def test_remote_rejects_incomplete_input(client, app):
     )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "REMOTE_INPUT_FAILED"
+
+    missing_volume = await client.post(
+        "/api/remote/input",
+        headers={"Authorization": f"Bearer {paired['token']}"},
+        json={"type": "volume"},
+    )
+    assert missing_volume.status_code == 400
+
+    invalid_volume = await client.post(
+        "/api/remote/input",
+        headers={"Authorization": f"Bearer {paired['token']}"},
+        json={"type": "volume", "volume": 101},
+    )
+    assert invalid_volume.status_code == 422

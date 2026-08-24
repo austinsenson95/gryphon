@@ -38,6 +38,11 @@ class MacRemoteAdapter:
         self._cg = None
         self._app_services = None
         self._cf = None
+        self._selected_window_pid: int | None = None
+        self._selected_window = None
+        self._ax_focused_window_attribute = None
+        self._ax_position_attribute = None
+        self._window_move_lock = asyncio.Lock()
 
     def _load_frameworks(self) -> None:
         if not self.supported or self._cg is not None:
@@ -91,6 +96,36 @@ class MacRemoteAdapter:
         ]
         self._cg.CGEventCreateScrollWheelEvent2.restype = ctypes.c_void_p
         self._cf.CFRelease.argtypes = [ctypes.c_void_p]
+        self._cf.CFStringCreateWithCString.argtypes = [
+            ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32,
+        ]
+        self._cf.CFStringCreateWithCString.restype = ctypes.c_void_p
+        self._app_services.AXUIElementCreateApplication.argtypes = [ctypes.c_int]
+        self._app_services.AXUIElementCreateApplication.restype = ctypes.c_void_p
+        self._app_services.AXUIElementCopyAttributeValue.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p),
+        ]
+        self._app_services.AXUIElementCopyAttributeValue.restype = ctypes.c_int32
+        self._app_services.AXUIElementSetAttributeValue.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+        ]
+        self._app_services.AXUIElementSetAttributeValue.restype = ctypes.c_int32
+        self._app_services.AXValueGetValue.argtypes = [
+            ctypes.c_void_p, ctypes.c_int32, ctypes.c_void_p,
+        ]
+        self._app_services.AXValueGetValue.restype = ctypes.c_bool
+        self._app_services.AXValueCreate.argtypes = [ctypes.c_int32, ctypes.c_void_p]
+        self._app_services.AXValueCreate.restype = ctypes.c_void_p
+        # CFStringCreateWithCString's UTF-8 encoding constant. These strings
+        # live for the adapter lifetime and avoid rebuilding AX attributes on
+        # every touch frame.
+        utf8 = 0x08000100
+        self._ax_focused_window_attribute = self._cf.CFStringCreateWithCString(
+            None, b"AXFocusedWindow", utf8
+        )
+        self._ax_position_attribute = self._cf.CFStringCreateWithCString(
+            None, b"AXPosition", utf8
+        )
 
     def permissions(self) -> dict[str, bool]:
         if not self.supported:
@@ -196,8 +231,11 @@ class MacRemoteAdapter:
     async def perform(self, action: dict) -> None:
         if not self.supported:
             raise RuntimeError("Remote input is only available on macOS.")
-        self._load_frameworks()
         kind = action["type"]
+        if kind == "volume":
+            await self._set_output_volume(int(action["volume"]))
+            return
+        self._load_frameworks()
         if not self.permissions()["accessibility"]:
             raise RuntimeError(
                 "Remote control needs Accessibility permission. Enable it for the app "
@@ -234,6 +272,25 @@ class MacRemoteAdapter:
             self._cg.CGEventSetIntegerValueField(event, 88, 1)
             self._post(event)
             return
+        if kind == "select_window":
+            async with self._window_move_lock:
+                self._release_selected_window()
+                self._selected_window_pid = await self._select_focused_window()
+            return
+        if kind == "release_window":
+            async with self._window_move_lock:
+                self._release_selected_window()
+            return
+        if kind == "move_window":
+            async with self._window_move_lock:
+                if self._selected_window_pid is None:
+                    raise RuntimeError("Move mode is no longer active. Select the window again.")
+                await self._move_selected_window(
+                    self._selected_window_pid,
+                    dx=int(action.get("dx", 0)),
+                    dy=int(action.get("dy", 0)),
+                )
+            return
         if kind == "key":
             key = str(action["key"]).lower()
             if key not in self.KEY_CODES:
@@ -264,6 +321,38 @@ class MacRemoteAdapter:
             return
         raise ValueError(f"Unsupported remote action: {kind}")
 
+    async def get_output_volume(self) -> int:
+        """Read the current macOS output volume as an integer percentage."""
+        if not self.supported:
+            raise RuntimeError("Volume control is only available on macOS.")
+        stdout = await self._run_volume_script("output volume of (get volume settings)")
+        try:
+            return max(0, min(100, int(stdout.strip())))
+        except ValueError as exc:
+            raise RuntimeError("macOS returned an invalid output volume.") from exc
+
+    async def _set_output_volume(self, volume: int) -> None:
+        if not 0 <= volume <= 100:
+            raise ValueError("Volume must be between 0 and 100.")
+        await self._run_volume_script(f"set volume output volume {volume}")
+
+    async def _run_volume_script(self, script: str) -> str:
+        osascript_bin = shutil.which("osascript")
+        if not osascript_bin:
+            raise RuntimeError("AppleScript is unavailable, so Griffin cannot control volume.")
+        process = await asyncio.create_subprocess_exec(
+            osascript_bin,
+            "-e",
+            script,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=8)
+        if process.returncode != 0:
+            detail = stderr.decode(errors="replace").strip()
+            raise RuntimeError(detail or "macOS could not change the output volume.")
+        return stdout.decode(errors="replace")
+
     async def _set_focused_window_fullscreen(self, *, enabled: bool) -> None:
         """Set the focused app's front window fullscreen state through Accessibility."""
         osascript_bin = shutil.which("osascript")
@@ -287,6 +376,102 @@ class MacRemoteAdapter:
         if process.returncode != 0:
             detail = stderr.decode(errors="replace").strip()
             raise RuntimeError(detail or "The focused window does not support fullscreen mode.")
+
+    async def _select_focused_window(self) -> int:
+        """Remember the frontmost app whose window the phone will reposition."""
+        script = (
+            'tell application "System Events"\n'
+            '  set focusedApp to first application process whose frontmost is true\n'
+            '  if not (exists window 1 of focusedApp) then error "The active app has no movable window."\n'
+            '  if exists attribute "AXFullScreen" of window 1 of focusedApp then\n'
+            '    if value of attribute "AXFullScreen" of window 1 of focusedApp is true then error "Exit full screen before moving this window."\n'
+            '  end if\n'
+            '  return unix id of focusedApp\n'
+            'end tell'
+        )
+        output = await self._run_window_script(script)
+        try:
+            return int(output.strip())
+        except ValueError as exc:
+            raise RuntimeError("macOS could not identify the active window.") from exc
+
+    async def _move_selected_window(self, pid: int, *, dx: int, dy: int) -> None:
+        """Move the selected window through the native Accessibility API."""
+        if not dx and not dy:
+            return
+        if self._selected_window is None:
+            self._bind_selected_window(pid)
+
+        position_value = ctypes.c_void_p()
+        error = self._app_services.AXUIElementCopyAttributeValue(
+            self._selected_window,
+            self._ax_position_attribute,
+            ctypes.byref(position_value),
+        )
+        if error or not position_value.value:
+            raise RuntimeError("The selected window is no longer available.")
+        try:
+            point = self.CGPoint()
+            if not self._app_services.AXValueGetValue(position_value, 1, ctypes.byref(point)):
+                raise RuntimeError("macOS could not read the selected window position.")
+        finally:
+            self._cf.CFRelease(position_value)
+
+        point.x += dx
+        point.y += dy
+        next_position = self._app_services.AXValueCreate(1, ctypes.byref(point))
+        if not next_position:
+            raise RuntimeError("macOS could not create the new window position.")
+        try:
+            error = self._app_services.AXUIElementSetAttributeValue(
+                self._selected_window,
+                self._ax_position_attribute,
+                next_position,
+            )
+        finally:
+            self._cf.CFRelease(next_position)
+        if error:
+            raise RuntimeError("The selected window could not be moved.")
+
+    def _bind_selected_window(self, pid: int) -> None:
+        application = self._app_services.AXUIElementCreateApplication(pid)
+        if not application:
+            raise RuntimeError("The selected application is no longer available.")
+        window = ctypes.c_void_p()
+        try:
+            error = self._app_services.AXUIElementCopyAttributeValue(
+                application,
+                self._ax_focused_window_attribute,
+                ctypes.byref(window),
+            )
+        finally:
+            self._cf.CFRelease(application)
+        if error or not window.value:
+            raise RuntimeError("The selected window is no longer available.")
+        self._selected_window = window
+
+    def _release_selected_window(self) -> None:
+        if self._selected_window is not None:
+            self._cf.CFRelease(self._selected_window)
+        self._selected_window = None
+        self._selected_window_pid = None
+
+    async def _run_window_script(self, script: str) -> str:
+        osascript_bin = shutil.which("osascript")
+        if not osascript_bin:
+            raise RuntimeError("AppleScript is unavailable, so Griffin cannot move Mac windows.")
+        process = await asyncio.create_subprocess_exec(
+            osascript_bin,
+            "-e",
+            script,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=8)
+        if process.returncode != 0:
+            detail = stderr.decode(errors="replace").strip()
+            raise RuntimeError(detail or "The selected window could not be moved.")
+        return stdout.decode(errors="replace")
 
     async def open_application(self, names: tuple[str, ...]) -> str:
         if not self.supported:

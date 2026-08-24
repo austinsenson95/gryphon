@@ -21,7 +21,9 @@ export const API_BASE =
   import.meta.env.VITE_API_BASE ??
   (isTauriRuntime()
     ? "http://127.0.0.1:8000"
-    : `${location.protocol}//${location.hostname}:8000`)
+    : location.protocol === "https:"
+      ? location.origin
+      : `${location.protocol}//${location.hostname}:8000`)
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -102,6 +104,52 @@ export function sendRemoteInput(token: string, input: RemoteInput): Promise<{ ac
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(input),
   })
+}
+
+export function getRemoteVolume(token: string): Promise<{ volume: number }> {
+  return request<{ volume: number }>("/api/remote/volume", {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
+
+export function sendRemoteCommand(
+  token: string,
+  message: string,
+  sessionId?: string | null,
+): Promise<ChatResponse> {
+  return request<ChatResponse>("/api/remote/chat", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ message, session_id: sessionId ?? null }),
+  })
+}
+
+export async function sendRemoteVoice(
+  token: string,
+  audio: Blob,
+  sessionId?: string | null,
+): Promise<VoiceResponse> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": audio.type || "audio/webm",
+  }
+  if (sessionId) headers["X-Session-Id"] = sessionId
+  const res = await fetch(`${API_BASE}/api/remote/voice`, {
+    method: "POST",
+    headers,
+    body: audio,
+  })
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try {
+      const body = (await res.json()) as { error?: { message?: string } }
+      if (body?.error?.message) detail = body.error.message
+    } catch {
+      // keep the HTTP status fallback
+    }
+    throw new Error(detail)
+  }
+  return (await res.json()) as VoiceResponse
 }
 
 export function openRemoteAccessibilitySettings(

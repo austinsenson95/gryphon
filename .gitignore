@@ -7,6 +7,7 @@ __pycache__/
 *.db
 .DS_Store
 *.tsbuildinfo
+config/tls/
 frontend/src-tauri/target/
 frontend/src-tauri/binaries/*
 !frontend/src-tauri/binaries/.gitkeep

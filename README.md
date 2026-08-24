@@ -128,6 +128,18 @@ Starts both servers (LAN-accessible), prints your LAN URL, and shuts both down c
 2. Find your Mac's LAN IP: `ipconfig getifaddr en0` (e.g. `192.168.1.42`).
 3. On your phone (same Wi-Fi): open `http://192.168.1.42:5173`.
 
+For microphone-only control on iPhone, create Griffin's local HTTPS identity once:
+
+```bash
+./scripts/setup-phone-https.sh
+```
+
+AirDrop `config/tls/griffin-ca.cer` to the iPhone, install **Griffin Local CA**
+under **Settings → General → VPN & Device Management**, then enable full trust
+under **Settings → General → About → Certificate Trust Settings**.
+`dev.sh` automatically detects the generated certificate and prints an HTTPS
+phone link. Certificates and private keys under `config/tls/` are gitignored.
+
 The frontend derives the API/WebSocket host from the page's hostname, so chat, live events, and avatar state work from the phone with zero extra configuration. Dev servers are LAN-only — do not expose them to the public internet.
 
 ## 8. API endpoints
@@ -140,6 +152,7 @@ The frontend derives the API/WebSocket host from the page's hostname, so chat, l
 | GET | `/api/health/tools` | command registry inventory (name, permission, LLM visibility) |
 | POST | `/api/chat` | `{"message": "...", "session_id": null}` → `{"message_id","task_id","session_id","response","tool_calls"}` |
 | POST | `/api/voice` | raw audio body + `X-Session-Id` header → transcript + same shape as `/api/chat` |
+| POST | `/api/remote/voice` | paired-phone audio with bearer token → local transcription + Griffin execution |
 | GET | `/api/tasks/{task_id}` | task + its tool calls |
 | GET | `/api/events?limit=50` | recent persisted events (chronological) |
 | WS | `/ws` | live event stream (hello + last-20 replay on connect) |
@@ -208,4 +221,5 @@ All OS-level operations are mocked in tests — no real apps or browser windows 
 - **CORS errors from LAN** — set `FRONTEND_ORIGIN` / use `VITE_API_BASE`; CORS already allows LAN origins in development.
 - **Chat says the local model isn't reachable** — `curl http://localhost:8000/api/health/ollama`; start `ollama serve` and `ollama pull $OLLAMA_MODEL`.
 - **Mic button errors with STT_UNAVAILABLE** — install a local engine (`pip install faster-whisper` in `backend/.venv`) or configure whisper.cpp; see §3b.
+- **Phone microphone unavailable** — run `./scripts/setup-phone-https.sh`, install and trust `config/tls/griffin-ca.cer` on the iPhone, restart Griffin, and use the printed `https://` link. Griffin intentionally never falls back to video capture.
 - **"Application not in the allowlist" / "outside the allowed directories"** — extend `ALLOWED_APPLICATIONS`, `ALLOWED_DIRECTORIES`, or `PROJECTS` in `config/.env`.

@@ -28,6 +28,8 @@ Application rules:
   name from the allowlist. For VS Code:, the allowlisted name is
   "Visual Studio Code:".
 - desktop.open_url opens an http(s) URL in the user's default browser.
+- When the user asks to search YouTube, use desktop.search_youtube with only
+  the requested video query. It opens the relevant YouTube results page.
 - If the user names a specific browser app (e.g. "Open Safari and go to
   github.com"), first open that app with desktop.open_application, then use
   desktop.open_url to load the URL. Do NOT use browser.open or browser.open_url
@@ -78,6 +80,7 @@ Examples:
   or profile URL if it has not been provided.
 - "Open the repositories for octocat." -> browser.open(url="https://github.com/octocat?tab=repositories")
 - "Search GitHub for Griffin." -> browser.open(url="https://github.com/search?q=Griffin&type=repositories")
+- "Open YouTube and search for lo-fi hip hop." -> desktop.search_youtube(query="lo-fi hip hop")
 
 Never pass literal placeholders like '<repo-index>' as an argument. Never claim
 to have searched or clicked unless the corresponding tool call has been

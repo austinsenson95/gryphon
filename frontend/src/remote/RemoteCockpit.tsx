@@ -13,7 +13,10 @@ import {
   Link2,
   LockKeyhole,
   Maximize2,
+  Mic,
+  MicOff,
   Minimize2,
+  Move,
   MousePointer2,
   MousePointerClick,
   MonitorUp,
@@ -23,10 +26,13 @@ import {
   RefreshCw,
   RotateCcw,
   ScrollText,
+  SendHorizontal,
   Settings2,
   ShieldCheck,
   Sparkles,
   SquareTerminal,
+  Volume2,
+  VolumeX,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -34,16 +40,22 @@ import { Input } from "@/components/ui/input"
 import {
   getRemoteFrame,
   getRemoteStatus,
+  getRemoteVolume,
   launchRemoteApplication,
   openRemoteAccessibilitySettings,
   pairRemote,
+  sendRemoteCommand,
   sendRemoteInput,
+  sendRemoteVoice,
   stopRemoteSession,
 } from "@/lib/api"
 import type { RemoteApplication, RemoteInput, RemoteStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const TOKEN_KEY = "griffin.remote.token"
+const CHAT_SESSION_KEY = "griffin.remote.chat.session"
+const MAX_VOICE_RECORDING_MS = 30_000
+type PhoneVoiceState = "idle" | "listening" | "transcribing"
 
 const REMOTE_APPS: Array<{
   id: RemoteApplication
@@ -150,11 +162,21 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
   const [text, setText] = useState("")
   const [sendingText, setSendingText] = useState(false)
   const [textDelivered, setTextDelivered] = useState(false)
+  const [command, setCommand] = useState("")
+  const [commandBusy, setCommandBusy] = useState(false)
+  const [commandError, setCommandError] = useState("")
+  const [commandReply, setCommandReply] = useState("")
+  const [voiceState, setVoiceState] = useState<PhoneVoiceState>("idle")
+  const [voiceTranscript, setVoiceTranscript] = useState("")
+  const [volume, setVolume] = useState(50)
+  const [volumeReady, setVolumeReady] = useState(false)
+  const [volumeError, setVolumeError] = useState("")
   const [scrollSlider, setScrollSlider] = useState(0)
   const [surfaceFeedback, setSurfaceFeedback] = useState<{ id: number; label: string; x: number; y: number } | null>(null)
   const [openingSettings, setOpeningSettings] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
-  const [controlMode, setControlMode] = useState<"pointer" | "scroll">("pointer")
+  const [controlMode, setControlMode] = useState<"pointer" | "scroll" | "window">("pointer")
+  const [selectingWindow, setSelectingWindow] = useState(false)
   const [frameSize, setFrameSize] = useState({ width: 16, height: 9 })
   const [launchingApp, setLaunchingApp] = useState<RemoteApplication | null>(null)
   const [immersive, setImmersive] = useState(false)
@@ -176,7 +198,17 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
   const pointerPosition = useRef({ x: 0.5, y: 0.5 })
   const lastMoveAt = useRef(0)
   const scrollSliderValue = useRef(0)
+  const windowMovePending = useRef({ dx: 0, dy: 0 })
+  const windowMoveSending = useRef(false)
+  const windowMoveGeneration = useRef(0)
+  const windowRelease = useRef<Promise<boolean> | null>(null)
+  const windowSelected = useRef(false)
   const feedbackTimer = useRef<number | null>(null)
+  const volumeTimer = useRef<number | null>(null)
+  const voiceTimer = useRef<number | null>(null)
+  const voiceRecorder = useRef<MediaRecorder | null>(null)
+  const voiceStream = useRef<MediaStream | null>(null)
+  const voiceChunks = useRef<Blob[]>([])
 
   const send = useCallback(async (input: RemoteInput) => {
     try {
@@ -226,6 +258,125 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
     setSendingText(false)
   }
 
+  const submitCommand = async () => {
+    const message = command.trim()
+    if (!message || commandBusy || voiceState !== "idle") return
+    setCommandBusy(true)
+    setCommandError("")
+    try {
+      const response = await sendRemoteCommand(
+        token,
+        message,
+        sessionStorage.getItem(CHAT_SESSION_KEY),
+      )
+      sessionStorage.setItem(CHAT_SESSION_KEY, response.session_id)
+      setCommandReply(response.response)
+      setCommand("")
+    } catch (reason) {
+      setCommandError(reason instanceof Error ? reason.message : "Griffin could not run that command.")
+    } finally {
+      setCommandBusy(false)
+    }
+  }
+
+  const submitVoiceCommand = async (audio: Blob) => {
+    if (!audio.size) {
+      setCommandError("No audio was recorded. Please try again.")
+      setVoiceState("idle")
+      return
+    }
+    setVoiceState("transcribing")
+    setCommandError("")
+    try {
+      const response = await sendRemoteVoice(
+        token,
+        audio,
+        sessionStorage.getItem(CHAT_SESSION_KEY),
+      )
+      sessionStorage.setItem(CHAT_SESSION_KEY, response.session_id)
+      setVoiceTranscript(response.transcript)
+      setCommandReply(response.response)
+    } catch (reason) {
+      setCommandError(reason instanceof Error ? reason.message : "Griffin could not understand that recording.")
+    } finally {
+      setVoiceState("idle")
+    }
+  }
+
+  const stopVoiceRecording = () => {
+    if (voiceTimer.current !== null) window.clearTimeout(voiceTimer.current)
+    voiceTimer.current = null
+    if (voiceRecorder.current?.state === "recording") voiceRecorder.current.stop()
+  }
+
+  const toggleVoiceRecording = async () => {
+    if (voiceState === "listening") {
+      stopVoiceRecording()
+      return
+    }
+    if (voiceState !== "idle") return
+    setCommandError("")
+    setVoiceTranscript("")
+    if (window.isSecureContext === false) {
+      setCommandError("Live microphone access on iPhone requires Griffin to be opened over trusted HTTPS.")
+      return
+    }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setCommandError("This phone browser does not support live microphone recording.")
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+        video: false,
+      })
+      if (stream.getVideoTracks().length) {
+        stream.getTracks().forEach((track) => track.stop())
+        setCommandError("Griffin refused a camera stream. Microphone audio is required.")
+        return
+      }
+      const recorder = new MediaRecorder(stream)
+      voiceStream.current = stream
+      voiceRecorder.current = recorder
+      voiceChunks.current = []
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) voiceChunks.current.push(event.data)
+      }
+      recorder.onerror = () => {
+        stream.getTracks().forEach((track) => track.stop())
+        setCommandError("Phone microphone recording stopped unexpectedly.")
+        setVoiceState("idle")
+      }
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop())
+        voiceStream.current = null
+        voiceRecorder.current = null
+        if (voiceTimer.current !== null) window.clearTimeout(voiceTimer.current)
+        voiceTimer.current = null
+        void submitVoiceCommand(new Blob(voiceChunks.current, { type: recorder.mimeType || "audio/webm" }))
+      }
+      recorder.start()
+      setVoiceState("listening")
+      voiceTimer.current = window.setTimeout(stopVoiceRecording, MAX_VOICE_RECORDING_MS)
+    } catch (reason) {
+      setVoiceState("idle")
+      setCommandError(reason instanceof Error && reason.name === "NotAllowedError"
+        ? "Microphone permission was denied. Allow microphone access in your phone browser settings."
+        : "Griffin could not access this phone's microphone.")
+    }
+  }
+
+  const changeVolume = (nextVolume: number) => {
+    setVolume(nextVolume)
+    setVolumeError("")
+    if (volumeTimer.current !== null) window.clearTimeout(volumeTimer.current)
+    volumeTimer.current = window.setTimeout(async () => {
+      volumeTimer.current = null
+      const changed = await send({ type: "volume", volume: nextVolume })
+      if (!changed) setVolumeError("Could not change the Mac volume.")
+    }, 100)
+  }
+
   const openAccessibility = async () => {
     setOpeningSettings(true)
     try {
@@ -249,6 +400,16 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
       setLaunchingApp(null)
     }
   }
+
+  useEffect(() => {
+    let cancelled = false
+    getRemoteVolume(token)
+      .then(({ volume: currentVolume }) => {
+        if (!cancelled) { setVolume(currentVolume); setVolumeReady(true); setVolumeError("") }
+      })
+      .catch(() => { if (!cancelled) setVolumeError("Mac volume is unavailable.") })
+    return () => { cancelled = true }
+  }, [token])
 
   useEffect(() => {
     let cancelled = false
@@ -281,6 +442,14 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
       if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current)
       if (tapTimer.current !== null) window.clearTimeout(tapTimer.current)
       if (feedbackTimer.current !== null) window.clearTimeout(feedbackTimer.current)
+      if (volumeTimer.current !== null) window.clearTimeout(volumeTimer.current)
+      if (voiceTimer.current !== null) window.clearTimeout(voiceTimer.current)
+      if (voiceRecorder.current) voiceRecorder.current.onstop = null
+      if (voiceRecorder.current?.state === "recording") voiceRecorder.current.stop()
+      voiceStream.current?.getTracks().forEach((track) => track.stop())
+      windowMoveGeneration.current += 1
+      windowMovePending.current = { dx: 0, dy: 0 }
+      if (windowSelected.current) void send({ type: "release_window" })
     }
   }, [])
 
@@ -324,6 +493,61 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
     }
   }
 
+  const activateWindowMove = async () => {
+    if (selectingWindow) return
+    setSelectingWindow(true)
+    await windowRelease.current
+    const selected = await send({ type: "select_window" })
+    windowSelected.current = selected
+    setSelectingWindow(false)
+    setControlMode(selected ? "window" : "pointer")
+  }
+
+  const flushWindowMove = async (generation: number) => {
+    if (windowMoveSending.current) return
+    windowMoveSending.current = true
+    try {
+      while (generation === windowMoveGeneration.current) {
+        const dx = clampScroll(windowMovePending.current.dx)
+        const dy = clampScroll(windowMovePending.current.dy)
+        if (!dx && !dy) break
+        windowMovePending.current.dx -= dx
+        windowMovePending.current.dy -= dy
+        if (!await send({ type: "move_window", dx, dy })) {
+          windowMovePending.current = { dx: 0, dy: 0 }
+          break
+        }
+      }
+    } finally {
+      windowMoveSending.current = false
+      const { dx, dy } = windowMovePending.current
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        void flushWindowMove(windowMoveGeneration.current)
+      }
+    }
+  }
+
+  const queueWindowMove = (dx: number, dy: number) => {
+    windowMovePending.current.dx += dx
+    windowMovePending.current.dy += dy
+    void flushWindowMove(windowMoveGeneration.current)
+  }
+
+  const switchControlMode = async (nextMode: "pointer" | "scroll") => {
+    if (controlMode === "window") {
+      windowMoveGeneration.current += 1
+      windowMovePending.current = { dx: 0, dy: 0 }
+      windowSelected.current = false
+      setControlMode(nextMode)
+      const release = send({ type: "release_window" })
+      windowRelease.current = release
+      await release
+      if (windowRelease.current === release) windowRelease.current = null
+      return
+    }
+    setControlMode(nextMode)
+  }
+
   const pointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (activePointers.current.has(event.pointerId)) activePointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     const active = gesture.current
@@ -340,6 +564,17 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
         active.scrollSent = true
         void send({ type: "scroll", dx: scrollX, dy: scrollY })
       }
+      return
+    }
+    if (active && active.pointerId === event.pointerId && controlMode === "window") {
+      event.preventDefault()
+      const rect = event.currentTarget.getBoundingClientRect()
+      const dx = (event.clientX - active.lastX) * (frameSize.width / rect.width)
+      const dy = (event.clientY - active.lastY) * (frameSize.height / rect.height)
+      active.lastX = event.clientX
+      active.lastY = event.clientY
+      if (Math.abs(event.clientX - active.x) + Math.abs(event.clientY - active.y) > 3) active.moved = true
+      if (dx || dy) queueWindowMove(dx, dy)
       return
     }
     if (activePointers.current.size >= 2 && controlMode === "pointer") {
@@ -379,6 +614,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
     const start = gesture.current
     gesture.current = null
     if (!start || wasMultiTouch || start.pointerId !== event.pointerId || start.longPressed) return
+    if (controlMode === "window") return
     if (controlMode === "scroll") {
       const finalDx = event.clientX - (start.scrollSent ? start.lastX : start.x)
       const finalDy = event.clientY - (start.scrollSent ? start.lastY : start.y)
@@ -480,14 +716,15 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
             style={{ aspectRatio: `${frameSize.width} / ${frameSize.height}` }}
           >
             <div className="absolute left-3 top-3 z-20 flex rounded-lg border border-white/10 bg-slate-950/80 p-1 backdrop-blur-md">
-              <button aria-pressed={controlMode === "pointer"} onClick={() => setControlMode("pointer")} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold", controlMode === "pointer" ? "bg-cyan-200 text-slate-950" : "text-slate-300")}><MousePointer2 className="h-3 w-3" />Pointer</button>
-              <button aria-pressed={controlMode === "scroll"} onClick={() => setControlMode("scroll")} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold", controlMode === "scroll" ? "bg-amber-300 text-slate-950" : "text-slate-300")}><ScrollText className="h-3 w-3" />Scroll</button>
+              <button aria-pressed={controlMode === "pointer"} onClick={() => void switchControlMode("pointer")} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold", controlMode === "pointer" ? "bg-cyan-200 text-slate-950" : "text-slate-300")}><MousePointer2 className="h-3 w-3" />Pointer</button>
+              <button aria-pressed={controlMode === "scroll"} onClick={() => void switchControlMode("scroll")} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold", controlMode === "scroll" ? "bg-amber-300 text-slate-950" : "text-slate-300")}><ScrollText className="h-3 w-3" />Scroll</button>
+              <button aria-label={controlMode === "window" ? "Exit window move mode" : "Move active window"} aria-pressed={controlMode === "window"} disabled={selectingWindow} onClick={() => void (controlMode === "window" ? switchControlMode("pointer") : activateWindowMove())} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold disabled:opacity-60", controlMode === "window" ? "bg-emerald-300 text-slate-950" : "text-slate-300")}><Move className={cn("h-3 w-3", selectingWindow && "animate-pulse")} />Move</button>
             </div>
             {frameUrl ? <img src={frameUrl} alt={`Live screen from ${status.device_name}`} draggable={false} onLoad={(event) => setFrameSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><RefreshCw className="h-7 w-7 animate-spin text-cyan-200/60" /></div>}
             <div
               aria-label="Mac trackpad surface"
-              aria-description="Drag to move the pointer, tap to click, and double-tap to double-click"
-              className={cn("absolute inset-0", controlMode === "pointer" ? "cursor-crosshair" : "cursor-ns-resize")}
+              aria-description={controlMode === "window" ? "Drag to reposition the selected Mac window" : "Drag to move the pointer, tap to click, and double-tap to double-click"}
+              className={cn("absolute inset-0", controlMode === "pointer" ? "cursor-crosshair" : controlMode === "window" ? "cursor-move ring-2 ring-inset ring-emerald-300/70" : "cursor-ns-resize")}
               onPointerDown={pointerDown}
               onPointerMove={pointerMove}
               onPointerUp={pointerUp}
@@ -507,6 +744,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
               <span className="remote-tap-feedback__label">{surfaceFeedback.label}</span>
             </span>}
             {controlMode === "pointer" && <span className="remote-pointer-hint">Tap to click · Double-tap to open</span>}
+            {controlMode === "window" && <span className="remote-pointer-hint border-emerald-300/20 text-emerald-100">Drag to move the selected window</span>}
             <div className="remote-scroll-tab" aria-label="Window scroll control">
               <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
               <input
@@ -536,6 +774,76 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
         </div>
 
         <div className="remote-control-rail">
+          <div className="rounded-[1.4rem] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(8,47,73,.72),rgba(2,6,23,.86))] p-3 shadow-lg shadow-cyan-950/20 backdrop-blur-xl">
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-white"><Sparkles className="h-3.5 w-3.5 text-cyan-200" />Ask Griffin</p>
+                <p className="mt-0.5 text-[10px] leading-4 text-cyan-100/60">Tell Griffin what to do on your Mac.</p>
+              </div>
+              <span className="rounded-full border border-cyan-200/15 bg-cyan-200/5 px-2 py-1 font-mono text-[8px] uppercase tracking-[.14em] text-cyan-100/60">Agent</span>
+            </div>
+            {commandReply && <div role="status" aria-label="Griffin response" className="mb-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] leading-5 text-slate-200">{voiceTranscript && <p className="mb-1 font-mono text-[9px] uppercase tracking-[.12em] text-cyan-100/55">Heard: {voiceTranscript}</p>}{commandReply}</div>}
+            <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+              <Input
+                aria-label="Message Griffin from phone"
+                value={command}
+                inputMode="text"
+                enterKeyHint="send"
+                autoCapitalize="sentences"
+                spellCheck
+                disabled={commandBusy || voiceState !== "idle"}
+                onChange={(event) => { setCommand(event.target.value); setCommandError("") }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && command.trim()) {
+                    event.preventDefault()
+                    void submitCommand()
+                  }
+                }}
+                placeholder="e.g. Open YouTube and search for…"
+              />
+              <Button size="icon" aria-label="Send command to Griffin" disabled={!command.trim() || commandBusy || voiceState !== "idle"} onClick={() => void submitCommand()}>
+                {commandBusy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+              </Button>
+              <Button
+                size="icon"
+                variant={voiceState === "listening" ? "destructive" : "outline"}
+                aria-label={voiceState === "listening" ? "Stop phone voice command" : "Start phone voice command"}
+                aria-pressed={voiceState === "listening"}
+                disabled={voiceState === "transcribing" || commandBusy}
+                onClick={() => void toggleVoiceRecording()}
+              >
+                {voiceState === "transcribing" ? <RefreshCw className="h-4 w-4 animate-spin" /> : voiceState === "listening" ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+            </div>
+            {voiceState === "listening" && <p role="status" className="mt-2 flex items-center gap-2 text-[10px] font-semibold text-red-200"><span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />Listening on this phone · tap stop when finished</p>}
+            {voiceState === "transcribing" && <p role="status" className="mt-2 text-[10px] text-cyan-100/70">Transcribing locally and asking Griffin…</p>}
+            {window.isSecureContext === false && voiceState === "idle" && <p className="mt-2 text-[9px] leading-4 text-amber-100/70">Live microphone control requires a trusted HTTPS phone link.</p>}
+            {commandError && <p role="alert" className="mt-2 text-[10px] leading-4 text-red-200">{commandError}</p>}
+          </div>
+
+          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-white"><Volume2 className="h-4 w-4 text-cyan-200" />Mac volume</p>
+              <span aria-live="polite" className="font-mono text-[10px] font-semibold text-cyan-100/70">{volumeReady ? `${volume}%` : "Loading…"}</span>
+            </div>
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5">
+              <VolumeX className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={volume}
+                disabled={!volumeReady}
+                aria-label="Mac output volume"
+                onChange={(event) => changeVolume(Number(event.currentTarget.value))}
+                className="h-1.5 w-full cursor-pointer accent-cyan-200 disabled:cursor-wait disabled:opacity-50"
+              />
+              <Volume2 className="h-4 w-4 text-cyan-200" aria-hidden="true" />
+            </div>
+            {volumeError && <p role="alert" className="mt-2 text-[10px] leading-4 text-amber-200">{volumeError}</p>}
+          </div>
+
           <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between"><p className="text-xs font-semibold text-white">Open on your Mac</p><span className="font-mono text-[9px] uppercase tracking-[.18em] text-slate-500">Launch dock</span></div>
             <div className="grid grid-cols-5 gap-2">
@@ -611,7 +919,7 @@ export function RemoteCockpit() {
     if (nextToken) { sessionStorage.setItem(TOKEN_KEY, nextToken); setToken(nextToken) }
   }
   const stop = async () => {
-    try { await stopRemoteSession(token) } finally { sessionStorage.removeItem(TOKEN_KEY); setToken(null); setStatus((current) => current ? { ...current, state: "idle", expires_at: null } : current) }
+    try { await stopRemoteSession(token) } finally { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(CHAT_SESSION_KEY); setToken(null); setStatus((current) => current ? { ...current, state: "idle", expires_at: null } : current) }
   }
 
   return (

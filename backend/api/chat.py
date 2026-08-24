@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from backend.core.agent import Agent
-from backend.core.state import get_state
+from backend.core.state import AppState, get_state
 from backend.events.events import EventType, new_event
 from backend.services.message_service import MessageService
 
@@ -34,7 +34,11 @@ class ChatResponse(BaseModel):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, request: Request) -> ChatResponse:
-    state = get_state(request)
+    return await run_chat(body, get_state(request))
+
+
+async def run_chat(body: ChatRequest, state: AppState) -> ChatResponse:
+    """Execute one Griffin turn for both desktop and authenticated remote UI."""
     messages = MessageService(state.db.session_factory)
 
     session_id = body.session_id

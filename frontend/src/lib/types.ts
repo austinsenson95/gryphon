@@ -109,8 +109,11 @@ export interface RemotePairResponse extends RemoteStatus {
 export type RemoteInput =
   | { type: "tap" | "double_tap" | "secondary_tap" | "move"; x: number; y: number }
   | { type: "scroll"; dx?: number; dy: number }
+  | { type: "move_window"; dx: number; dy: number }
+  | { type: "select_window" | "release_window" }
   | { type: "text"; text: string }
   | { type: "key"; key: string; modifiers?: string[] }
+  | { type: "volume"; volume: number }
   | { type: "enter_fullscreen" | "exit_fullscreen" }
 
 export type RemoteApplication = "hermes" | "spotify" | "notes" | "vscode" | "terminal"

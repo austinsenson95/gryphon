@@ -168,6 +168,20 @@ def register(registry, settings: Settings) -> None:
             "desktop.search_web", {"query": query, "url": url, "opened": True}
         )
 
+    async def search_youtube(query: str) -> ToolResult:
+        query = query.strip()
+        if not query or len(query) > 500:
+            return ToolResult.fail(
+                "desktop.search_youtube", "INVALID_ARGUMENTS", "Query is empty or too long."
+            )
+        url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
+        ok, detail = await _run_mac_open([url])
+        if not ok:
+            return ToolResult.fail("desktop.search_youtube", "COMMAND_FAILED", detail)
+        return ToolResult.ok(
+            "desktop.search_youtube", {"query": query, "url": url, "opened": True}
+        )
+
     async def open_folder(path: str) -> ToolResult:
         resolved, error = _resolve_allowed_dir(settings, path)
         if error or resolved is None:
@@ -375,6 +389,25 @@ def register(registry, settings: Settings) -> None:
             },
             permission="safe",
             handler=search_web,
+        )
+    )
+    registry.register(
+        Tool(
+            name="desktop.search_youtube",
+            description=(
+                "Open YouTube's video results page for a search query in the "
+                "user's default browser. Use this instead of web.search when "
+                "the user specifically asks to search YouTube."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The YouTube video search query."}
+                },
+                "required": ["query"],
+            },
+            permission="safe",
+            handler=search_youtube,
         )
     )
     registry.register(
