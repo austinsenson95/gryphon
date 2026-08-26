@@ -15,7 +15,7 @@ import {
   SUCCESS_IDLE_MS,
   type AvatarState,
 } from "@/avatar/stateMachine"
-import { getBrowserStatus, getEvents, getHealth, getProviderInfo, setProvider } from "@/lib/api"
+import { getBrowserStatus, getEvents, getHealth, getProviderInfo, getWhatsAppActions, setProvider } from "@/lib/api"
 import { createGriffinSocket } from "@/lib/ws"
 import {
   getDesktopRuntime,
@@ -31,6 +31,7 @@ import type {
   GriffinEvent,
   LLMProvider,
   ToolActivityItem,
+  WhatsAppAction,
 } from "@/lib/types"
 
 const EVENT_BUFFER_CAP = 200
@@ -51,6 +52,7 @@ export interface GriffinState {
   notifications: AppNotification[]
   sessionId: string | null
   desktopRuntime: DesktopRuntimeSnapshot | null
+  whatsAppActions: WhatsAppAction[]
   setSessionId: (id: string) => void
   dismissNotification: (id: string) => void
   switchProvider: (provider: LLMProvider) => Promise<void>
@@ -72,6 +74,7 @@ const defaultState: GriffinState = {
   notifications: [],
   sessionId: null,
   desktopRuntime: null,
+  whatsAppActions: [],
   setSessionId: () => {},
   dismissNotification: () => {},
   switchProvider: async () => {},
@@ -130,6 +133,7 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [desktopRuntime, setDesktopRuntime] =
     useState<DesktopRuntimeSnapshot | null>(null)
+  const [whatsAppActions, setWhatsAppActions] = useState<WhatsAppAction[]>([])
 
   const seenIds = useRef(new Set<string>())
   const avatarTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -252,6 +256,14 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
               title: "Phone call failed",
               body: asString(call.error) ?? "Open Calls for details.",
             })
+          }
+          break
+        }
+        case "WHATSAPP_ACTION_UPDATED": {
+          const raw = event.data.action
+          if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+            const action = raw as unknown as WhatsAppAction
+            setWhatsAppActions((prev) => [action, ...prev.filter((item) => item.action_id !== action.action_id)].slice(0, 20))
           }
           break
         }
@@ -408,14 +420,15 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([getHealth(), getProviderInfo(), getBrowserStatus()])
-      .then(([health, info, browser]) => {
+    Promise.all([getHealth(), getProviderInfo(), getBrowserStatus(), getWhatsAppActions()])
+      .then(([health, info, browser, actions]) => {
         if (cancelled) return
         setHealthOk(health.status === "ok")
         setLlmMode(health.llm_mode ?? null)
         setProviderState(info.provider)
         setAvailableProviders(info.available)
         setBrowserStatus(browser)
+        setWhatsAppActions(actions)
       })
       .catch(() => {
         if (!cancelled) setHealthOk(false)
@@ -478,6 +491,7 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
       notifications,
       sessionId,
       desktopRuntime,
+      whatsAppActions,
       setSessionId,
       dismissNotification,
       switchProvider,
@@ -498,6 +512,7 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
       notifications,
       sessionId,
       desktopRuntime,
+      whatsAppActions,
       dismissNotification,
       switchProvider,
       restartKernel,

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from backend.core.config import Settings
 from backend.core.logging import get_logger
-from backend.tools import browser, desktop, phone, research, terminal, workflows
+from backend.tools import browser, desktop, phone, research, terminal, workflows, whatsapp
 from backend.tools.schemas import Tool
 
 logger = get_logger("griffin.tools")
@@ -56,7 +56,7 @@ class ToolRegistry:
         ]
 
 
-def create_default_registry(settings: Settings, bus=None, phone_service=None) -> ToolRegistry:
+def create_default_registry(settings: Settings, bus=None, phone_service=None, whatsapp_service=None) -> ToolRegistry:
     """Build the registry with all built-in tools (Phase 0 + Phase 1)."""
     registry = ToolRegistry()
     terminal.register(registry, settings)
@@ -66,4 +66,6 @@ def create_default_registry(settings: Settings, bus=None, phone_service=None) ->
     workflows.register(registry, settings, bus=bus)
     if phone_service is not None:
         phone.register(registry, phone_service)
+    if whatsapp_service is not None:
+        whatsapp.register(registry, whatsapp_service)
     return registry

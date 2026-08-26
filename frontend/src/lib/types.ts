@@ -32,6 +32,7 @@ export const EVENT_TYPES = [
   "PHONE_CALL_TRANSCRIPT",
   "PHONE_CALL_COMPLETED",
   "PHONE_CALL_FAILED",
+  "WHATSAPP_ACTION_UPDATED",
 ] as const
 
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -213,4 +214,17 @@ export interface AppNotification {
   level: "info" | "warning" | "error"
   title: string
   body: string
+}
+
+export type WhatsAppActionStatus = "approval_required" | "approved" | "executing" | "sent" | "failed" | "uncertain" | "cancelled" | "expired"
+
+export interface WhatsAppAction {
+  action_id: string
+  recipient: string
+  message: string
+  message_hash: string
+  status: WhatsAppActionStatus
+  expires_at: string
+  created_at: string
+  sent_at?: string | null
 }

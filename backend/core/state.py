@@ -18,6 +18,7 @@ from backend.stt.base import SpeechToTextProvider
 from backend.tools.registry import ToolRegistry
 from backend.remote.service import RemoteControlService
 from backend.phone.service import PhoneService
+from backend.tools.whatsapp.service import WhatsAppService
 
 
 @dataclass
@@ -31,6 +32,7 @@ class AppState:
     stt: SpeechToTextProvider
     remote: RemoteControlService
     phone: PhoneService
+    whatsapp: WhatsAppService
 
     @property
     def llm_mode(self) -> str:

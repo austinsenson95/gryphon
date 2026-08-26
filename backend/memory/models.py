@@ -71,6 +71,39 @@ class ToolCall(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class PendingAction(Base):
+    """Immutable, approval-gated external action."""
+
+    __tablename__ = "pending_actions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    tool_name: Mapped[str] = mapped_column(String, index=True)
+    action_type: Mapped[str] = mapped_column(String)
+    payload: Mapped[dict] = mapped_column(JSON)
+    payload_hash: Mapped[str] = mapped_column(String, index=True)
+    token_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="pending", index=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ActionAudit(Base):
+    __tablename__ = "action_audit"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    action_id: Mapped[str] = mapped_column(String, index=True)
+    tool: Mapped[str] = mapped_column(String)
+    action: Mapped[str] = mapped_column(String)
+    recipient: Mapped[str] = mapped_column(String)
+    message_hash: Mapped[str] = mapped_column(String)
+    approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    result: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

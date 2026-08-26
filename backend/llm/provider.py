@@ -78,6 +78,12 @@ _CALL_CONTACT_RE = re.compile(
     r"(?:and\s+ask|to\s+ask|and\s+find\s+out|to\s+find\s+out|about)\s+(?P<mission>.+)",
     re.IGNORECASE | re.DOTALL,
 )
+_WHATSAPP_RE = re.compile(
+    r"(?:message|whatsapp|send\s+(?:a\s+)?whatsapp\s+(?:message\s+)?to|tell)\s+"
+    r"(?P<name>[A-Za-z][A-Za-z .'-]{0,60}?)\s+"
+    r"(?:on\s+whatsapp\s+)?(?:saying|say|that|:|and\s+tell\s+(?:him|her|them))\s*(?P<message>.+)",
+    re.IGNORECASE | re.DOTALL,
+)
 # Chained multi-action connectors (Phase 1 multi-step requests).
 _CHAIN_RE = re.compile(r"\s+(?:and\s+then|then|and|,)\s+", re.IGNORECASE)
 
@@ -361,6 +367,13 @@ class MockLLMProvider(LLMProvider):
         """Resolve one clause to a single (tool, args) plan, or None."""
         lowered = text.lower().strip()
 
+        match = _WHATSAPP_RE.search(text)
+        if match:
+            return ("whatsapp.prepare_message", {
+                "recipient": match.group("name").strip(),
+                "message": match.group("message").strip().rstrip("."),
+            })
+
         match = _CALL_CONTACT_RE.search(text)
         if match:
             name = match.group("name").strip()
@@ -482,6 +495,10 @@ class MockLLMProvider(LLMProvider):
                 f"I queued the call to {data.get('contact_name', 'the contact')} through {mode}. "
                 f"Call ID: {data.get('id', 'unknown')}. I’ll post the transcript and findings in Calls."
             )
+        if name == "whatsapp.prepare_message":
+            return f"I prepared a WhatsApp message to {data.get('recipient', 'the contact')}. Review the draft and choose Send when it is correct."
+        if name == "whatsapp.send_message":
+            return f"Sent to {data.get('recipient', 'the contact')}."
         if name == "phone.get_call_status":
             summary = data.get("summary")
             return summary or f"The call to {data.get('contact_name', 'the contact')} is {data.get('status', 'unknown')}."

@@ -14,6 +14,7 @@ import type {
   PhoneCall,
   PhoneContact,
   PhoneStatus,
+  WhatsAppAction,
 } from "@/lib/types"
 import { isTauriRuntime } from "@/lib/desktop"
 
@@ -45,6 +46,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(detail)
   }
   return (await res.json()) as T
+}
+
+export function getWhatsAppActions(): Promise<WhatsAppAction[]> {
+  return request<WhatsAppAction[]>("/api/tools/whatsapp/actions")
+}
+
+export function approveWhatsAppAction(actionId: string): Promise<WhatsAppAction & { approval_token: string }> {
+  return request(`/api/tools/whatsapp/actions/${encodeURIComponent(actionId)}/approve`, { method: "POST" })
+}
+
+export function sendWhatsAppAction(actionId: string, approvalToken: string): Promise<WhatsAppAction> {
+  return request(`/api/tools/whatsapp/actions/${encodeURIComponent(actionId)}/send`, { method: "POST", body: JSON.stringify({ approval_token: approvalToken }) })
+}
+
+export function cancelWhatsAppAction(actionId: string): Promise<WhatsAppAction> {
+  return request(`/api/tools/whatsapp/actions/${encodeURIComponent(actionId)}/cancel`, { method: "POST" })
+}
+
+export function prepareWhatsAppAction(recipient: string, message: string): Promise<WhatsAppAction> {
+  return request("/api/tools/whatsapp/prepare", { method: "POST", body: JSON.stringify({ recipient, message }) })
 }
 
 export function getHealth(): Promise<HealthResponse> {

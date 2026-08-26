@@ -126,6 +126,15 @@ class Settings(BaseSettings):
     browser_profile_dir: str = "~/.griffin/browser-profile"
     browser_screenshot_dir: str = "~/.griffin/browser-screenshots"
 
+    # WhatsApp Web (dedicated profile; never shared with the general browser)
+    griffin_whatsapp_enabled: bool = True
+    griffin_whatsapp_profile_dir: str = "./data/browser/whatsapp"
+    griffin_whatsapp_headless: bool = False
+    griffin_whatsapp_timeout_ms: int = 15_000
+    griffin_whatsapp_max_message_chars: int = 4_000
+    griffin_whatsapp_approval_ttl_seconds: int = 300
+    griffin_whatsapp_debug_screenshots: bool = False
+
     # Agent loop rails (Phase 1)
     # A real browser task commonly needs navigate -> inspect -> interact ->
     # verify, plus recovery for consent dialogs or stale page state.  Four

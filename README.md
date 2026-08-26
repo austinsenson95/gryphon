@@ -244,3 +244,38 @@ All OS-level operations are mocked in tests — no real apps or browser windows 
 - **Mic button errors with STT_UNAVAILABLE** — install a local engine (`pip install faster-whisper` in `backend/.venv`) or configure whisper.cpp; see §3b.
 - **Phone microphone unavailable** — run `./scripts/setup-phone-https.sh`, install and trust `config/tls/griffin-ca.cer` on the iPhone, restart Griffin, and use the printed `https://` link. Griffin intentionally never falls back to video capture.
 - **Application does not open** — use the app's display name as shown in Finder (for example, `Visual Studio Code`). For folder/project access errors, extend `ALLOWED_DIRECTORIES` or `PROJECTS` in `config/.env`.
+
+## 13. WhatsApp Web connector
+
+Griffin can prepare and send plain-text WhatsApp messages through a dedicated,
+persistent Playwright profile. The profile is separate from Griffin's general
+browser and is ignored by Git. Every outbound message is stored as an immutable
+draft, shown in the dashboard, and requires an expiring one-use approval before
+the browser can press Send.
+
+First-time connection:
+
+1. Install Chromium once: `cd backend && . .venv/bin/activate && playwright install chromium`.
+2. Start Griffin with `./scripts/dev.sh`.
+3. Call `POST http://localhost:8000/api/tools/whatsapp/open` (or ask Griffin to open WhatsApp).
+4. In the visible WhatsApp window, scan the QR code from WhatsApp → Settings → Linked Devices → Link a Device.
+5. Wait for `GET /api/tools/whatsapp/status` to return `authenticated`.
+6. Ask: “Message Test Contact on WhatsApp saying hello from Griffin.” Review the dashboard draft and choose Send.
+
+The linked session persists in `data/browser/whatsapp/`. `DELETE
+/api/tools/whatsapp/session` closes the connector but deliberately preserves
+that profile. To revoke access, use WhatsApp's Linked Devices screen. Delete the
+local profile only after closing Griffin and only when you intentionally want to
+require a fresh QR link.
+
+Manual verification: send once to a safe test contact, confirm only one message
+arrives, restart Griffin, repeat without scanning a new QR, then try clicking a
+completed action again and confirm no second message is sent. If Griffin reports
+an `uncertain` result, inspect WhatsApp manually—automatic retries are blocked.
+
+Configuration is in `config/.env`: `GRIFFIN_WHATSAPP_ENABLED`,
+`GRIFFIN_WHATSAPP_PROFILE_DIR`, `GRIFFIN_WHATSAPP_HEADLESS`,
+`GRIFFIN_WHATSAPP_TIMEOUT_MS`, `GRIFFIN_WHATSAPP_MAX_MESSAGE_CHARS`, and
+`GRIFFIN_WHATSAPP_APPROVAL_TTL_SECONDS`. Keep headless mode off for initial
+linking. Griffin audits recipient, message hash, approval, and outcome; it does
+not log message bodies or authentication state.

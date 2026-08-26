@@ -187,6 +187,20 @@ describe("Phone remote controls", () => {
     expect(surface.closest("section")).toHaveClass("remote-immersive")
   })
 
+  it("expands the Ask Griffin terminal for long responses", async () => {
+    const user = userEvent.setup()
+    render(<RemoteCockpit />)
+
+    const expand = await screen.findByRole("button", { name: "Expand Griffin response" })
+    await user.click(expand)
+
+    expect(screen.getByRole("button", { name: "Collapse Griffin response" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByText("ASK GRIFFIN").closest(".griffin-agent-module")).toHaveClass("is-expanded")
+
+    await user.keyboard("{Escape}")
+    expect(screen.getByRole("button", { name: "Expand Griffin response" })).toHaveAttribute("aria-pressed", "false")
+  })
+
   it("changes the focused Mac window's full screen state", async () => {
     const user = userEvent.setup()
     render(<RemoteCockpit />)

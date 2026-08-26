@@ -64,6 +64,7 @@ const EVENT_ICONS: Record<EventType, LucideIcon> = {
   PHONE_CALL_TRANSCRIPT: Captions,
   PHONE_CALL_COMPLETED: CheckCircle2,
   PHONE_CALL_FAILED: XCircle,
+  WHATSAPP_ACTION_UPDATED: MessageSquare,
 }
 
 function iconTone(type: EventType): string {

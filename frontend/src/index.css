@@ -58,6 +58,34 @@
   }
 }
 
+/* WhatsApp approval: a quiet message slip with a single green action rail. */
+.whatsapp-action { position: relative; overflow: hidden; border: 1px solid rgb(148 163 184 / .16); border-radius: 14px; background: rgb(15 23 42 / .34); }
+.whatsapp-action__rail { position: absolute; inset: 0 auto 0 0; width: 3px; background: #25d366; }
+.whatsapp-action__body { padding: 12px 12px 12px 15px; }
+.whatsapp-action__recipient { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 7px; }
+.whatsapp-action__recipient span { color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
+.whatsapp-action__recipient strong { color: #f8fafc; font-size: 13px; font-weight: 650; }
+.whatsapp-action__recipient em { color: #86efac; font-size: 10px; font-style: normal; text-transform: capitalize; }
+.whatsapp-action p, .whatsapp-action textarea { margin-top: 10px; width: 100%; color: #dbeafe; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+.whatsapp-action textarea { min-height: 76px; resize: vertical; border: 1px solid rgb(74 222 128 / .45); border-radius: 9px; background: rgb(2 6 23 / .58); padding: 8px; outline: none; }
+.whatsapp-action textarea:focus-visible { box-shadow: 0 0 0 2px rgb(34 197 94 / .25); }
+.whatsapp-action__controls { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.whatsapp-action__controls button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; border-radius: 8px; padding: 0 9px; color: #cbd5e1; font-size: 11px; font-weight: 600; }
+.whatsapp-action__controls button:hover { background: rgb(148 163 184 / .12); }
+.whatsapp-action__controls button:focus-visible { outline: 2px solid #86efac; outline-offset: 2px; }
+.whatsapp-action__controls button:disabled { cursor: wait; opacity: .55; }
+.whatsapp-action__controls button svg, .whatsapp-action__sent svg { width: 13px; height: 13px; }
+.whatsapp-action__controls .is-send { background: #25d366; color: #052e16; }
+.whatsapp-action__controls .is-send:hover { background: #4ade80; }
+.whatsapp-action__error { margin-top: 9px; color: #fda4af; font-size: 11px; line-height: 1.4; }
+.whatsapp-action__sent { display: flex; align-items: center; gap: 5px; margin-top: 9px; color: #86efac; font-size: 11px; }
+.whatsapp-action.is-sent .whatsapp-action__rail { background: #4ade80; }
+.whatsapp-action.is-failed .whatsapp-action__rail, .whatsapp-action.is-uncertain .whatsapp-action__rail { background: #fb7185; }
+[data-theme="light"] .whatsapp-action { background: rgb(255 255 255 / .62); }
+[data-theme="light"] .whatsapp-action__recipient strong, [data-theme="light"] .whatsapp-action p { color: #172033; }
+[data-theme="light"] .whatsapp-action textarea { background: rgb(255 255 255 / .8); color: #172033; }
+@media (prefers-reduced-motion: reduce) { .whatsapp-action .animate-spin { animation: none; } }
+
 @layer components {
   .surface-card {
     border-color: rgba(255, 255, 255, .08);
@@ -750,19 +778,39 @@ body::before { display: none; }
 .remote-monitor-panel { padding: .54rem; }
 .remote-monitor-labels { display: flex; align-items: center; justify-content: space-between; padding: 0 .25rem .42rem; }
 .remote-monitor-labels > span:last-child { color: #656560; font: 650 .5rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.remote-screen-bezel { position: relative; border: 1px solid #151614; border-radius: .78rem; padding: .56rem; background: linear-gradient(145deg, #2c2e2b, #111210); box-shadow: inset 2px 2px 3px rgba(255,255,255,.07), inset -2px -2px 4px rgba(0,0,0,.75), 0 2px rgba(255,255,255,.48); }
-.remote-screen-mode { position: absolute; z-index: 30; top: .82rem; left: .82rem; display: flex; gap: 2px; padding: 3px; border: 1px solid #151816; border-radius: .38rem; background: rgba(9,14,13,.9); box-shadow: 0 3px 7px rgba(0,0,0,.42); }
+.remote-display-hardware { position: relative; padding-bottom: 1.65rem; }
+.remote-screen-bezel { position: relative; z-index: 2; overflow: hidden; border: 1px solid #8c8d8d; border-radius: .7rem; padding: .45rem .45rem 0; background: linear-gradient(112deg, #e8e9e9 0%, #b9babb 37%, #f0f1f1 64%, #a7a8a9 100%); box-shadow: inset 1px 1px 0 rgba(255,255,255,.95), inset -1px -1px 0 rgba(54,55,56,.22), 0 5px 10px rgba(26,27,27,.35); }
+.remote-screen-bezel::before { content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(118deg, rgba(255,255,255,.36), transparent 23%, transparent 72%, rgba(49,50,51,.1)); }
+.remote-monitor-camera { position: absolute; z-index: 20; top: .2rem; left: 50%; width: .2rem; height: .2rem; translate: -50% 0; border: 1px solid rgba(0,0,0,.8); border-radius: 50%; background: radial-gradient(circle at 35% 30%, #607578, #101718 62%); box-shadow: 0 0 0 1px rgba(255,255,255,.22); }
+.remote-screen-mode { position: absolute; z-index: 30; top: .7rem; left: .7rem; display: flex; gap: 2px; padding: 3px; border: 1px solid #151816; border-radius: .38rem; background: rgba(9,14,13,.9); box-shadow: 0 3px 7px rgba(0,0,0,.42); }
 .remote-screen-mode button { display: inline-flex; min-height: 44px; align-items: center; gap: .22rem; border-radius: .25rem; padding: .25rem .46rem; color: #aebbb6; font-size: .52rem; font-weight: 750; touch-action: manipulation; }
 .remote-screen-mode button.is-active { color: #13211e; background: #8ed4c7; box-shadow: inset 0 1px rgba(255,255,255,.65), 0 1px 2px rgba(0,0,0,.5); }
-.remote-stage { border: 1px solid #050706; border-radius: .42rem; background: #030706; box-shadow: inset 0 3px 10px rgba(0,0,0,.9); }
+.remote-stage { border: .28rem solid #101112; border-radius: .38rem .38rem .18rem .18rem; background: #030706; box-shadow: inset 0 3px 10px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.68); }
 .remote-stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(155deg, rgba(255,255,255,.075), transparent 23%); }
+.remote-monitor-chin { position: relative; display: grid; height: 1.25rem; place-items: center; color: #66686a; text-shadow: 0 1px rgba(255,255,255,.72); }
+.remote-monitor-chin::before { content: ""; position: absolute; inset: 0 -.45rem; border-top: 1px solid rgba(69,70,71,.24); background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(90,91,92,.08)); }
+.remote-monitor-chin span { position: relative; z-index: 1; font: 600 .65rem/1 -apple-system, BlinkMacSystemFont, sans-serif; }
+.remote-monitor-stand { position: absolute; z-index: 1; bottom: .05rem; left: 50%; width: 34%; height: 1.75rem; translate: -50% 0; perspective: 8rem; }
+.remote-monitor-stand::before { content: ""; position: absolute; top: -.15rem; left: 50%; width: 31%; height: 1.3rem; translate: -50% 0; border: 1px solid #88898a; background: linear-gradient(90deg, #a0a1a2, #eceeee 48%, #999a9b); box-shadow: inset 1px 0 rgba(255,255,255,.8), 2px 3px 5px rgba(30,31,31,.22); transform: rotateX(-7deg); }
+.remote-monitor-stand span { position: absolute; right: 0; bottom: 0; left: 0; height: .38rem; border: 1px solid #858687; border-radius: 50% 50% .12rem .12rem; background: linear-gradient(180deg, #e9eaea, #9b9c9d); box-shadow: inset 0 1px rgba(255,255,255,.9), 0 3px 4px rgba(37,38,38,.28); }
 .remote-click-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .46rem; padding: .38rem .18rem .28rem; }
 .remote-click-row .hw-physical-button { white-space: normal; }
 
 .remote-control-rail { gap: .55rem; }
 .griffin-agent-module { background: linear-gradient(145deg, #d4d4ce, #999994); }
 .griffin-agent-module .hw-status-led { color: #555650; }
-.griffin-agent-display { min-height: 5.4rem; max-height: 9.5rem; overflow-y: auto; padding: .65rem .72rem; font-size: .67rem; line-height: 1.5; }
+.griffin-agent-heading__tools { display: flex; align-items: center; gap: .55rem; }
+.griffin-terminal-expand { display: inline-flex; min-height: 32px; align-items: center; gap: .28rem; border: 1px solid #777772; border-radius: .32rem; padding: .3rem .42rem; color: #444540; background: linear-gradient(#deded8, #aaa9a3); box-shadow: inset 1px 1px rgba(255,255,255,.72), 0 2px 0 #777772; font: 800 .48rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-transform: uppercase; }
+.griffin-terminal-expand svg { width: .72rem; height: .72rem; }
+.griffin-terminal-expand:hover { filter: brightness(1.06); }
+.griffin-terminal-expand:focus-visible { outline: 2px solid #2f7168; outline-offset: 2px; }
+.griffin-agent-display { min-height: 11rem; max-height: 18rem; overflow-y: auto; overscroll-behavior: contain; padding: .9rem 1rem; font-size: .8rem; line-height: 1.68; scrollbar-color: #62847d #0a1110; scrollbar-width: thin; }
+.griffin-terminal-response { min-width: 0; }
+.griffin-terminal-response > p:last-child { overflow-wrap: anywhere; white-space: pre-wrap; }
+.griffin-agent-module.is-expanded { position: fixed; z-index: 130; inset: max(.65rem, env(safe-area-inset-top)) max(.65rem, env(safe-area-inset-right)) max(.65rem, env(safe-area-inset-bottom)) max(.65rem, env(safe-area-inset-left)); display: flex; min-height: 0; flex-direction: column; padding: .85rem; box-shadow: 0 24px 70px rgba(0,0,0,.72), inset 1px 1px rgba(255,255,255,.65); }
+.griffin-agent-module.is-expanded .griffin-agent-display { min-height: 0; max-height: none; flex: 1 1 0%; padding: clamp(1rem, 3vw, 1.65rem); font-size: clamp(.9rem, 2vw, 1.08rem); line-height: 1.72; }
+.griffin-agent-module.is-expanded .griffin-command-entry { flex: 0 0 auto; }
+.griffin-agent-module.is-expanded .griffin-terminal-meta { font-size: .66rem; }
 .griffin-terminal-idle { color: rgba(157,229,213,.58); }
 .griffin-terminal-meta { margin-bottom: .28rem; color: rgba(157,229,213,.54); font-size: .52rem; letter-spacing: .08em; }
 .griffin-command-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .4rem; margin-top: .5rem; }

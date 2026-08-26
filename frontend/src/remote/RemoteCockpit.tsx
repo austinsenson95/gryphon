@@ -158,6 +158,16 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
   const [applications, setApplications] = useState<RemoteApplicationOption[]>([])
   const [appQuery, setAppQuery] = useState("")
   const [immersive, setImmersive] = useState(false)
+  const [agentExpanded, setAgentExpanded] = useState(false)
+
+  useEffect(() => {
+    if (!agentExpanded) return
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setAgentExpanded(false)
+    }
+    window.addEventListener("keydown", closeOnEscape)
+    return () => window.removeEventListener("keydown", closeOnEscape)
+  }, [agentExpanded])
   const remoteRef = useRef<HTMLElement>(null)
   const gesture = useRef<{
     pointerId: number
@@ -736,25 +746,30 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
         <div className="remote-screen-column">
           <MetalPanel className="remote-monitor-panel">
             <div className="remote-monitor-labels"><EngravedLabel>REMOTE DISPLAY</EngravedLabel><span>{frameSize.width}:{frameSize.height}</span></div>
-            <div className="remote-screen-bezel">
-              <div className="remote-screen-mode">
-                <button aria-pressed={controlMode === "pointer"} onClick={() => void switchControlMode("pointer")} className={cn(controlMode === "pointer" && "is-active")}><MousePointer2 className="h-3 w-3" />Pointer</button>
-                <button aria-pressed={controlMode === "scroll"} onClick={() => void switchControlMode("scroll")} className={cn(controlMode === "scroll" && "is-active")}><ScrollText className="h-3 w-3" />Scroll</button>
-                <button aria-label={controlMode === "window" ? "Exit window move mode" : "Move active window"} aria-pressed={controlMode === "window"} disabled={selectingWindow} onClick={() => void (controlMode === "window" ? switchControlMode("pointer") : activateWindowMove())} className={cn(controlMode === "window" && "is-active")}><Move className={cn("h-3 w-3", selectingWindow && "animate-pulse")} />Move</button>
-              </div>
-              <div className="remote-stage relative overflow-hidden touch-none" style={{ aspectRatio: `${frameSize.width} / ${frameSize.height}` }}>
-                {frameUrl ? <img src={frameUrl} alt={`Live screen from ${status.device_name}`} draggable={false} onLoad={(event) => setFrameSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><RefreshCw className="h-7 w-7 animate-spin" /></div>}
-                <div aria-label="Mac trackpad surface" aria-description={controlMode === "window" ? "Drag to reposition the selected Mac window" : "Drag to move the pointer, tap to click, and double-tap to double-click"} className={cn("absolute inset-0", controlMode === "pointer" ? "cursor-crosshair" : controlMode === "window" ? "cursor-move ring-2 ring-inset ring-emerald-300/70" : "cursor-ns-resize")} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={cancelPointer} onWheel={(event) => { event.preventDefault(); void send({ type: "scroll", dx: clampScroll(-event.deltaX), dy: clampScroll(-event.deltaY) }) }} />
-                {surfaceFeedback && <span key={surfaceFeedback.id} role="status" className="remote-tap-feedback" style={{ left: `${surfaceFeedback.x * 100}%`, top: `${surfaceFeedback.y * 100}%` }}><span className="remote-tap-feedback__ring" /><span className="remote-tap-feedback__label">{surfaceFeedback.label}</span></span>}
-                {controlMode === "pointer" && <span className="remote-pointer-hint">Tap to click / Double-tap to open</span>}
-                {controlMode === "window" && <span className="remote-pointer-hint">Drag to move the selected window</span>}
-                <div className="remote-scroll-tab" aria-label="Window scroll control">
-                  <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
-                  <input aria-label="Scroll active Mac window" className="remote-scroll-slider" type="range" min={-100} max={100} step={2} value={scrollSlider} onChange={(event) => moveScrollSlider(Number(event.currentTarget.value))} onPointerUp={releaseScrollSlider} onPointerCancel={releaseScrollSlider} onTouchEnd={releaseScrollSlider} onBlur={releaseScrollSlider} />
-                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Scroll</span>
+            <div className="remote-display-hardware">
+              <div className="remote-screen-bezel">
+                <span className="remote-monitor-camera" aria-hidden="true" />
+                <div className="remote-screen-mode">
+                  <button aria-pressed={controlMode === "pointer"} onClick={() => void switchControlMode("pointer")} className={cn(controlMode === "pointer" && "is-active")}><MousePointer2 className="h-3 w-3" />Pointer</button>
+                  <button aria-pressed={controlMode === "scroll"} onClick={() => void switchControlMode("scroll")} className={cn(controlMode === "scroll" && "is-active")}><ScrollText className="h-3 w-3" />Scroll</button>
+                  <button aria-label={controlMode === "window" ? "Exit window move mode" : "Move active window"} aria-pressed={controlMode === "window"} disabled={selectingWindow} onClick={() => void (controlMode === "window" ? switchControlMode("pointer") : activateWindowMove())} className={cn(controlMode === "window" && "is-active")}><Move className={cn("h-3 w-3", selectingWindow && "animate-pulse")} />Move</button>
                 </div>
+                <div className="remote-stage relative overflow-hidden touch-none" style={{ aspectRatio: `${frameSize.width} / ${frameSize.height}` }}>
+                  {frameUrl ? <img src={frameUrl} alt={`Live screen from ${status.device_name}`} draggable={false} onLoad={(event) => setFrameSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><RefreshCw className="h-7 w-7 animate-spin" /></div>}
+                  <div aria-label="Mac trackpad surface" aria-description={controlMode === "window" ? "Drag to reposition the selected Mac window" : "Drag to move the pointer, tap to click, and double-tap to double-click"} className={cn("absolute inset-0", controlMode === "pointer" ? "cursor-crosshair" : controlMode === "window" ? "cursor-move ring-2 ring-inset ring-emerald-300/70" : "cursor-ns-resize")} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={cancelPointer} onWheel={(event) => { event.preventDefault(); void send({ type: "scroll", dx: clampScroll(-event.deltaX), dy: clampScroll(-event.deltaY) }) }} />
+                  {surfaceFeedback && <span key={surfaceFeedback.id} role="status" className="remote-tap-feedback" style={{ left: `${surfaceFeedback.x * 100}%`, top: `${surfaceFeedback.y * 100}%` }}><span className="remote-tap-feedback__ring" /><span className="remote-tap-feedback__label">{surfaceFeedback.label}</span></span>}
+                  {controlMode === "pointer" && <span className="remote-pointer-hint">Tap to click / Double-tap to open</span>}
+                  {controlMode === "window" && <span className="remote-pointer-hint">Drag to move the selected window</span>}
+                  <div className="remote-scroll-tab" aria-label="Window scroll control">
+                    <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    <input aria-label="Scroll active Mac window" className="remote-scroll-slider" type="range" min={-100} max={100} step={2} value={scrollSlider} onChange={(event) => moveScrollSlider(Number(event.currentTarget.value))} onPointerUp={releaseScrollSlider} onPointerCancel={releaseScrollSlider} onTouchEnd={releaseScrollSlider} onBlur={releaseScrollSlider} />
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Scroll</span>
+                  </div>
+                </div>
+                <div className="remote-monitor-chin" aria-hidden="true"><span></span></div>
               </div>
+              <div className="remote-monitor-stand" aria-hidden="true"><span /></div>
             </div>
           </MetalPanel>
           <div className="remote-click-row">
@@ -765,10 +780,19 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
         </div>
 
         <div className="remote-control-rail">
-          <MetalPanel className="griffin-agent-module">
-            <div className="hw-control-heading"><EngravedLabel>ASK GRIFFIN</EngravedLabel><StatusLED state={agentLed} label={agentState} /></div>
+          <MetalPanel className={cn("griffin-agent-module", agentExpanded && "is-expanded")}>
+            <div className="hw-control-heading">
+              <EngravedLabel>ASK GRIFFIN</EngravedLabel>
+              <div className="griffin-agent-heading__tools">
+                <StatusLED state={agentLed} label={agentState} />
+                <button type="button" className="griffin-terminal-expand" aria-label={agentExpanded ? "Collapse Griffin response" : "Expand Griffin response"} aria-pressed={agentExpanded} onClick={() => setAgentExpanded((value) => !value)}>
+                  {agentExpanded ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+                  <span>{agentExpanded ? "Collapse" : "Expand"}</span>
+                </button>
+              </div>
+            </div>
             <InstrumentDisplay className="griffin-agent-display">
-              {commandReply ? <div role="status" aria-label="Griffin response">{voiceTranscript && <p className="griffin-terminal-meta">Heard: {voiceTranscript}</p>}<p>{commandReply}</p></div> : <p className="griffin-terminal-idle">&gt; AGENT ONLINE<br />&gt; AWAITING INSTRUCTION</p>}
+              {commandReply ? <div className="griffin-terminal-response" role="status" aria-label="Griffin response">{voiceTranscript && <p className="griffin-terminal-meta">Heard: {voiceTranscript}</p>}<p>{commandReply}</p></div> : <p className="griffin-terminal-idle">&gt; AGENT ONLINE<br />&gt; AWAITING INSTRUCTION</p>}
             </InstrumentDisplay>
             <div className="griffin-command-entry">
               <Input

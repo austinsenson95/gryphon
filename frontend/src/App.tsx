@@ -13,6 +13,7 @@ import { ConnectedDevicesCard } from "@/dashboard/ConnectedDevicesCard"
 import { SystemStatusCard } from "@/dashboard/SystemStatusCard"
 import { cn } from "@/lib/utils"
 import { PhoneCallDashboard } from "@/phone/PhoneCallDashboard"
+import { WhatsAppApprovalCard } from "@/tasks/WhatsAppApprovalCard"
 
 type ViewMode = "desktop" | "phone"
 type WorkspaceView = "assistant" | "calls"
@@ -62,7 +63,7 @@ function Dashboard() {
     window.localStorage.setItem("griffin.theme", next)
     return next
   })
-  return <div className="griffin-app" data-mode={mode} data-theme={theme}><Header mode={mode} onMode={changeMode} view={view} onView={changeView} theme={theme} onTheme={toggleTheme} />{view === "calls" ? <PhoneCallDashboard /> : mode === "phone" ? <RemoteCockpit /> : <main className="griffin-workspace"><ChatPanel /><aside className="griffin-dashboard" aria-label="Mac controls"><SystemStatusCard /><CurrentTaskCard /><ToolActivityCard /><ActivityTimeline /><ConnectedDevicesCard /><DesktopRemoteCard /></aside></main>}<NotificationStack /></div>
+  return <div className="griffin-app" data-mode={mode} data-theme={theme}><Header mode={mode} onMode={changeMode} view={view} onView={changeView} theme={theme} onTheme={toggleTheme} />{view === "calls" ? <PhoneCallDashboard /> : mode === "phone" ? <RemoteCockpit /> : <main className="griffin-workspace"><ChatPanel /><aside className="griffin-dashboard" aria-label="Mac controls"><SystemStatusCard /><WhatsAppApprovalCard /><CurrentTaskCard /><ToolActivityCard /><ActivityTimeline /><ConnectedDevicesCard /><DesktopRemoteCard /></aside></main>}<NotificationStack /></div>
 }
 
 export default function App() { return <GriffinProvider><Dashboard /></GriffinProvider> }

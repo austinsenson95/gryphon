@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.api import browser, chat, events, health, llm, phone, remote, tasks, voice, websocket
+from backend.api import browser, chat, events, health, llm, phone, remote, tasks, voice, websocket, whatsapp
 from backend.core.config import APP_VERSION, Settings, get_settings
 from backend.core.logging import get_logger, setup_logging
 from backend.core.state import AppState
@@ -30,6 +30,9 @@ from backend.stt.local import get_stt_provider
 from backend.tools.registry import create_default_registry
 from backend.remote.service import RemoteControlService
 from backend.phone.service import PhoneService
+from backend.tools.whatsapp.session import WhatsAppSession
+from backend.tools.whatsapp.controller import WhatsAppController
+from backend.tools.whatsapp.service import WhatsAppService
 
 logger = get_logger("griffin.main")
 
@@ -66,8 +69,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         phone_service = PhoneService(settings, db.session_factory, bus)
         await phone_service.seed_contacts()
 
+        whatsapp_session = WhatsAppSession(settings)
+        whatsapp_controller = WhatsAppController(whatsapp_session, settings.griffin_whatsapp_timeout_ms)
+        whatsapp_service = WhatsAppService(settings, db.session_factory, bus, whatsapp_controller)
+
         # Registry is built with shared services so tools can stream progress events.
-        registry = create_default_registry(settings, bus=bus, phone_service=phone_service)
+        registry = create_default_registry(settings, bus=bus, phone_service=phone_service, whatsapp_service=whatsapp_service)
         provider = get_llm_provider(settings)
         stt = get_stt_provider(settings)
 
@@ -81,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             stt=stt,
             remote=RemoteControlService(),
             phone=phone_service,
+            whatsapp=whatsapp_service,
         )
 
         # Startup verification for Ollama: report clearly instead of failing
@@ -111,6 +119,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             browser_manager = getattr(registry, "browser", None)
             if browser_manager is not None:
                 await browser_manager.close()
+            await whatsapp_session.close()
             await db.dispose()
             logger.info("app.stopped")
 
@@ -158,6 +167,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(events.router)
     app.include_router(remote.router)
     app.include_router(phone.router)
+    app.include_router(whatsapp.router)
     app.include_router(websocket.router)
     return app
 
