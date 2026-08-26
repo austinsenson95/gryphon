@@ -134,8 +134,10 @@ class Settings(BaseSettings):
     max_tool_retries: int = 2  # bounded retries for transient tool failures (timeouts)
     tool_timeout: float = 30.0  # seconds before a tool call is aborted
 
-    # Desktop execution safety rails (Phase 1)
+    # Desktop execution settings (Phase 1)
     default_browser: str = ""  # e.g. "Safari"; empty = system default browser
+    # Retained for backwards-compatible name/casing aliases. App opening is no
+    # longer restricted to this list; `open -a` resolves any installed app.
     allowed_applications: str = (
         "Safari,Google Chrome,Firefox,Arc,Visual Studio Code,Terminal,"
         "iTerm,Notes,Calendar,Finder,Slack,Spotify"

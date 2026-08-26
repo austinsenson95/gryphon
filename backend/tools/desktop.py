@@ -2,8 +2,8 @@
 
 Real OS-level capabilities executed through safe native mechanisms:
 macOS ``open`` via ``asyncio.create_subprocess_exec`` (argument list, never a
-shell string), URL scheme validation, an application allowlist, a directory
-allowlist, and a configured project registry. The LLM can propose these tools;
+shell string), URL scheme validation, a directory allowlist, and a configured
+project registry. The LLM can propose these tools;
 this module is where untrusted model output meets the security boundary.
 """
 
@@ -113,6 +113,16 @@ def _resolve_application(settings: Settings, name: str) -> str | None:
     return None
 
 
+def _safe_application_name(name: str) -> str | None:
+    """Validate an app display name before passing it as one argv item to open."""
+    application = name.strip()
+    if not application or len(application) > 160:
+        return None
+    if any(character in application for character in ("/", "\\", "\0", "\n", "\r")):
+        return None
+    return application
+
+
 def register(registry, settings: Settings) -> None:
     if sys.platform != "darwin":
         logger.warning(
@@ -121,13 +131,13 @@ def register(registry, settings: Settings) -> None:
         )
 
     async def open_application(application: str) -> ToolResult:
-        canonical = _resolve_application(settings, application)
+        requested = _safe_application_name(application)
+        canonical = _resolve_application(settings, requested or "") or requested
         if canonical is None:
             return ToolResult.fail(
                 "desktop.open_application",
-                "UNSUPPORTED_APPLICATION",
-                f"Application {application!r} is not in the allowlist "
-                f"({settings.allowed_applications}).",
+                "INVALID_APPLICATION",
+                "Provide an installed macOS application name without a path.",
             )
         ok, detail = await _run_mac_open(["-a", canonical])
         if not ok:
@@ -341,8 +351,7 @@ def register(registry, settings: Settings) -> None:
         Tool(
             name="desktop.open_application",
             description=(
-                "Open an installed macOS application by name. Only applications "
-                "in the configured allowlist can be opened."
+                "Open any installed macOS application by its display name."
             ),
             input_schema={
                 "type": "object",
@@ -350,8 +359,8 @@ def register(registry, settings: Settings) -> None:
                     "application": {
                         "type": "string",
                         "description": (
-                            "Application name, e.g. 'Safari'. Allowed: "
-                            + ", ".join(settings.allowed_application_list)
+                            "Installed application name, e.g. 'Safari', "
+                            "'Obsidian', or 'Visual Studio Code'."
                         ),
                     }
                 },
@@ -479,15 +488,14 @@ def register(registry, settings: Settings) -> None:
             name="desktop.open_app",
             description=(
                 "Alias of desktop.open_application: open an installed macOS "
-                "application by name (allowlisted)."
+                "application by name."
             ),
             input_schema={
                 "type": "object",
                 "properties": {
                     "application": {
                         "type": "string",
-                        "description": "Application name, e.g. 'Safari'. Allowed: "
-                        + ", ".join(settings.allowed_application_list),
+                        "description": "Installed application name, e.g. 'Safari' or 'Obsidian'.",
                     }
                 },
                 "required": ["application"],

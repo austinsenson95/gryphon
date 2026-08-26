@@ -57,6 +57,10 @@ _OPEN_APP_RE = re.compile(
     r"visual studio code|terminal|iterm|notes|calendar|finder|slack|spotify)\b",
     re.IGNORECASE,
 )
+_OPEN_ANY_APP_RE = re.compile(
+    r"^open\s+(?:my\s+)?(.+?)(?:\s+(?:application|app))?[.!]?\s*$",
+    re.IGNORECASE,
+)
 _KNOWN_SITES = {
     "github": "https://github.com",
     "google": "https://www.google.com",
@@ -406,6 +410,12 @@ class MockLLMProvider(LLMProvider):
         if match:
             url = _KNOWN_SITES[re.sub(r"\s+", " ", match.group(1).lower())]
             return ("desktop.open_url", {"url": url})
+
+        match = _OPEN_ANY_APP_RE.search(text)
+        if match:
+            application = match.group(1).strip().rstrip(".!")
+            if application:
+                return ("desktop.open_application", {"application": application})
 
         if "search" in lowered:
             match = _SEARCH_RE.search(text)

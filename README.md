@@ -14,7 +14,7 @@ TEXT / VOICE → LOCAL STT → AGENT RUNTIME → LOCAL LLM (Ollama)
       → LIVE EVENTS → DASHBOARD
 ```
 
-The LLM only *proposes* structured tool calls. Python validates every call against the registered command catalog (allowlisted apps, allowlisted directories, validated URLs) and executes through safe native mechanisms (`asyncio.create_subprocess_exec` with argv lists — no shell, no `eval`, ever). Unknown commands, unknown workflows, invalid URLs, disallowed paths and privileged tools all **fail closed** with structured errors.
+The LLM only *proposes* structured tool calls. Python validates every call against the registered command catalog (installed-app names, allowlisted directories, validated URLs) and executes through safe native mechanisms (`asyncio.create_subprocess_exec` with argv lists — no shell, no `eval`, ever). Unknown commands, unknown workflows, invalid URLs, disallowed paths and privileged tools all **fail closed** with structured errors.
 
 ![Griffin dashboard](docs/dashboard.png)
 
@@ -62,7 +62,7 @@ All configuration lives in `backend/.env` (never committed; `backend/.env.exampl
 | `SEARCH_API_KEY` / `SEARCH_API_URL` | empty | real web search API (mock fallback otherwise) |
 | `BROWSER_HEADLESS` | `false` | Playwright browser mode (`browser.open_url`) |
 | `DEFAULT_BROWSER` | empty | e.g. `Safari`; empty = system default browser |
-| `ALLOWED_APPLICATIONS` | common mac apps | comma-separated app allowlist for `desktop.open_application` |
+| `ALLOWED_APPLICATIONS` | common mac apps | legacy aliases/canonical casing; app opening accepts any installed app |
 | `ALLOWED_DIRECTORIES` | `~/Projects,~/Documents,~/Desktop,~/Downloads` | path allowlist for folder/terminal tools |
 | `PROJECTS` | empty | JSON object: `{"griffin": "~/Projects/griffin"}` |
 | `SEARCH_ENGINE_URL` | Google | `{query}` placeholder; used by `desktop.search_web` |
@@ -190,7 +190,7 @@ Smoke-test the stream any time: `python scripts/ws_smoke.py`.
 | `system.get_info` | safe | platform / python / host / app info |
 | `web.search` | safe | real HTTP search if `SEARCH_API_*` set, otherwise explicit mock results |
 | `browser.open_url` | safe | Playwright if installed (`playwright install chromium`), otherwise explicit mock executor |
-| `desktop.open_application` | safe | open an allowlisted macOS app (`open -a`) |
+| `desktop.open_application` | safe | open any installed macOS app by display name (`open -a`) |
 | `desktop.open_url` | safe | open a validated http(s) URL in the default browser |
 | `desktop.search_web` | safe | open a browser search (`SEARCH_ENGINE_URL` template) |
 | `desktop.open_folder` | safe | open a folder inside `ALLOWED_DIRECTORIES` |
@@ -243,4 +243,4 @@ All OS-level operations are mocked in tests — no real apps or browser windows 
 - **Chat says the local model isn't reachable** — `curl http://localhost:8000/api/health/ollama`; start `ollama serve` and `ollama pull $OLLAMA_MODEL`.
 - **Mic button errors with STT_UNAVAILABLE** — install a local engine (`pip install faster-whisper` in `backend/.venv`) or configure whisper.cpp; see §3b.
 - **Phone microphone unavailable** — run `./scripts/setup-phone-https.sh`, install and trust `config/tls/griffin-ca.cer` on the iPhone, restart Griffin, and use the printed `https://` link. Griffin intentionally never falls back to video capture.
-- **"Application not in the allowlist" / "outside the allowed directories"** — extend `ALLOWED_APPLICATIONS`, `ALLOWED_DIRECTORIES`, or `PROJECTS` in `config/.env`.
+- **Application does not open** — use the app's display name as shown in Finder (for example, `Visual Studio Code`). For folder/project access errors, extend `ALLOWED_DIRECTORIES` or `PROJECTS` in `config/.env`.

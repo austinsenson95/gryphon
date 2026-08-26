@@ -89,18 +89,24 @@ async def test_open_url_happy_path(phase1_registry, fake_open):
     assert fake_open == [["https://github.com"]]
 
 
-async def test_open_application_allowlist(phase1_registry, fake_open):
+async def test_open_any_installed_application_name(phase1_registry, fake_open):
     ok = await executor.execute_tool(
         phase1_registry, "desktop.open_application", {"application": "safari"}
     )
     assert ok.success
     assert fake_open == [["-a", "Safari"]]
 
+    another = await executor.execute_tool(
+        phase1_registry, "desktop.open_application", {"application": "Obsidian"}
+    )
+    assert another.success
+    assert fake_open[-1] == ["-a", "Obsidian"]
+
     bad = await executor.execute_tool(
-        phase1_registry, "desktop.open_application", {"application": "rm"}
+        phase1_registry, "desktop.open_application", {"application": "/Applications/Notes.app"}
     )
     assert not bad.success
-    assert bad.error.code == "UNSUPPORTED_APPLICATION"
+    assert bad.error.code == "INVALID_APPLICATION"
 
 
 async def test_open_folder_confined_to_allowlist(phase1_registry, phase1_settings, tmp_path, fake_open):
@@ -226,6 +232,12 @@ async def test_mock_provider_maps_phase1_commands():
     call = await plan("Open VS Code")
     assert call.name == "desktop.open_application"
     assert call.arguments["application"] == "Visual Studio Code"
+
+    call = await plan("Open Obsidian")
+    assert (call.name, call.arguments) == (
+        "desktop.open_application",
+        {"application": "Obsidian"},
+    )
 
     call = await plan("Search the web for the latest AI agent frameworks")
     assert call.name == "desktop.search_web"
