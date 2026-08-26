@@ -31,12 +31,21 @@ import {
   ShieldCheck,
   Sparkles,
   SquareTerminal,
-  Volume2,
   VolumeX,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  ControlGroup,
+  EngravedLabel,
+  InstrumentDisplay,
+  MetalPanel,
+  PhysicalButton,
+  RecessedPanel,
+  StatusLED,
+  WoodPanel,
+} from "@/components/griffin/hardware"
 import {
   getRemoteFrame,
   getRemoteStatus,
@@ -108,50 +117,34 @@ function PairingView({ status, onStatus }: { status: RemoteStatus | null; onStat
   }, [code])
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-5 lg:grid-cols-[1.1fr_.9fr]">
-      <section className="remote-stage flex min-h-[420px] flex-col justify-between rounded-[2rem] border border-cyan-200/15 bg-[#07111f]/85 p-6 shadow-2xl shadow-black/30 sm:p-8">
-        <div>
-          <div className="mb-8 flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-cyan-200/65">Local control link</span>
-            <span className="h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,.8)]" />
-          </div>
-          <MonitorUp className="mb-5 h-11 w-11 text-cyan-200" strokeWidth={1.4} />
-          <h2 className="max-w-lg text-3xl font-semibold leading-tight text-white sm:text-4xl">Put your Mac in your hand.</h2>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">On your Mac, switch Griffin to Desktop mode and start the phone remote. Enter the six-digit code shown there.</p>
-        </div>
-        <div className="mt-8 flex flex-wrap gap-2">
+    <section className="griffin-control-deck griffin-pairing-deck mx-auto flex w-full max-w-[430px] flex-col">
+      <div className="griffin-deck-header">
+        <div className="griffin-deck-brand"><span className="griffin-deck-mark">G</span><div><p>GRIFFIN</p><p>MAC CONTROL INSTRUMENT</p></div></div>
+        <StatusLED state="amber" label="PAIRING" />
+      </div>
+      <MetalPanel className="griffin-pairing-display-panel">
+        <div className="hw-control-heading"><EngravedLabel>LOCAL CONTROL LINK</EngravedLabel><MonitorUp className="h-4 w-4" /></div>
+        <InstrumentDisplay className="griffin-pairing-display">
+          <Link2 className="h-6 w-6" />
+          <h2>Put your Mac in your hand.</h2>
+          <p>Start the phone remote in Griffin desktop mode, then enter the six-digit code shown on your Mac.</p>
+        </InstrumentDisplay>
+        <div className="griffin-pairing-status">
           <PermissionPill ok={status?.permissions.screen_recording ?? false}>Screen recording</PermissionPill>
           <PermissionPill ok={status?.permissions.accessibility ?? false}>Accessibility</PermissionPill>
         </div>
-      </section>
-
-      <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 backdrop-blur-xl sm:p-8">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-300 text-slate-950"><Link2 className="h-5 w-5" /></div>
-          <div><p className="font-semibold text-white">Pair a device</p><p className="text-xs text-slate-400">One remote at a time · 30 minute session</p></div>
-        </div>
-
-        <div className="my-6 flex items-center gap-3 text-[10px] uppercase tracking-[.2em] text-slate-500"><span className="h-px flex-1 bg-white/10" />Code from your Mac<span className="h-px flex-1 bg-white/10" /></div>
-        <label htmlFor="pair-code" className="text-xs font-medium text-slate-300">Pairing code</label>
-        <Input
-          id="pair-code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          value={code}
-          onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-          onKeyDown={(event) => event.key === "Enter" && code.length === 6 && pair()}
-          placeholder="000000"
-          className="mt-2 h-14 text-center font-mono text-2xl tracking-[.3em]"
-        />
-        <Button className="mt-3 w-full" disabled={busy || code.length !== 6} onClick={pair}>
+      </MetalPanel>
+      <ControlGroup label="PAIR A DEVICE" meta={<span className="hw-readout">30 MIN SESSION</span>} className="griffin-pairing-control">
+        <label htmlFor="pair-code">Pairing code</label>
+        <Input id="pair-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} onKeyDown={(event) => event.key === "Enter" && code.length === 6 && pair()} placeholder="000000" className="griffin-pairing-input" />
+        <PhysicalButton className="mt-3 w-full" disabled={busy || code.length !== 6} onClick={pair}>
           {busy ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Laptop className="mr-2 h-4 w-4" />}
           Connect to Mac
-        </Button>
-        {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
-        {!status?.ready && status?.supported && <p className="mt-5 text-xs leading-5 text-amber-100/75">Allow Screen Recording and Accessibility for your terminal app in System Settings → Privacy &amp; Security, then restart Griffin.</p>}
-      </section>
-    </div>
+        </PhysicalButton>
+        {error && <p role="alert" className="griffin-module-note is-error">{error}</p>}
+        {!status?.ready && status?.supported && <p className="griffin-module-note is-warning">Allow Screen Recording and Accessibility for your terminal app in System Settings, then restart Griffin.</p>}
+      </ControlGroup>
+    </section>
   )
 }
 
@@ -682,19 +675,38 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
     gesture.current = null
   }
 
+  const agentState = commandError
+    ? "ERROR"
+    : voiceState === "listening"
+      ? "LISTENING"
+      : voiceState === "transcribing" || commandBusy
+        ? "THINKING"
+        : commandReply
+          ? "DONE"
+          : "IDLE"
+  const agentLed = commandError ? "red" : voiceState === "listening" || voiceState === "transcribing" || commandBusy ? "amber" : "cyan"
+
   return (
-    <section ref={remoteRef} className={cn("mx-auto flex w-full max-w-6xl flex-col gap-3", immersive && "remote-immersive")}>
-      <div className="remote-live-header flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-xl">
-        <div className="flex min-w-0 items-center gap-3"><span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.8)]" /><div className="min-w-0"><p className="truncate text-sm font-semibold text-white">{status.device_name}</p><p className="text-[10px] uppercase tracking-[.18em] text-emerald-200/70">Direct · Local Wi-Fi</p><p className={cn("mt-0.5 text-[9px] font-semibold uppercase tracking-[.12em]", status.permissions.accessibility ? "text-cyan-200/70" : "text-amber-200")}>{status.permissions.accessibility ? "Control enabled" : "Accessibility permission needed"}</p></div></div>
-        <div className="flex shrink-0 items-center gap-1">
-          <Button variant="ghost" size="sm" aria-label={immersive ? "Exit full screen" : "Open full screen landscape"} onClick={() => void toggleImmersive()}>
+    <section ref={remoteRef} className={cn("griffin-control-deck mx-auto flex w-full max-w-[430px] flex-col", immersive && "remote-immersive")}>
+      <div className="remote-live-header griffin-deck-header">
+        <div className="griffin-deck-brand">
+          <span className="griffin-deck-mark">G</span>
+          <div className="min-w-0"><p className="truncate">GRIFFIN</p><p>MAC CONTROL INSTRUMENT</p></div>
+        </div>
+        <div className="griffin-deck-header__actions">
+          <PhysicalButton tone="metal" className="hw-icon-key" aria-label={immersive ? "Exit full screen" : "Open full screen landscape"} onClick={() => void toggleImmersive()}>
             {immersive ? <Minimize2 className="mr-1.5 h-4 w-4" /> : <Maximize2 className="mr-1.5 h-4 w-4" />}
-            <span className="hidden sm:inline">{immersive ? "Exit" : "Full screen"}</span>
-          </Button>
-          <Button variant="ghost" size="sm" className="text-red-200 hover:text-red-100" onClick={onStop}><Power className="mr-1.5 h-4 w-4" />Stop</Button>
+          </PhysicalButton>
+          <PhysicalButton className="hw-icon-key hw-icon-key--stop" aria-label="Stop remote session" onClick={onStop}><Power className="h-4 w-4" /></PhysicalButton>
         </div>
       </div>
-      {!status.permissions.accessibility && <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+      <div className="griffin-status-strip" aria-label="System status">
+        <StatusLED state="green" label="MAC ONLINE" />
+        <StatusLED state={status.permissions.accessibility ? "green" : "amber"} label={status.permissions.accessibility ? "CONTROL READY" : "PERMISSION"} />
+        <StatusLED state={agentLed} label={`AGENT ${agentState}`} />
+        <StatusLED state={frameUrl ? "cyan" : "amber"} label={frameUrl ? "STREAM LIVE" : "STREAM WAIT"} />
+      </div>
+      {!status.permissions.accessibility && <div className="griffin-hardware-alert">
         <p>Mirroring works, but macOS is discarding scroll and keyboard events. Enable Accessibility for Griffin’s Python runtime.</p>
         {status.permission_target && <p className="mt-1 break-all font-mono text-[10px] text-amber-100/70">{status.permission_target}</p>}
         <Button variant="outline" size="sm" className="mt-2" disabled={openingSettings} onClick={() => void openAccessibility()}>
@@ -704,86 +716,50 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
       </div>}
 
       <div className="remote-rotate-hint">
-        <RotateCcw className="h-10 w-10 text-cyan-200" />
-        <p className="text-base font-semibold text-white">Rotate your phone</p>
-        <p className="max-w-xs text-center text-xs leading-5 text-slate-400">The full remote is designed for landscape so the Mac screen and controls stay visible together.</p>
+        <RotateCcw className="h-10 w-10" />
+        <p className="text-base font-semibold">Rotate your phone</p>
+        <p className="max-w-xs text-center text-xs leading-5">The full remote uses landscape so the Mac screen and controls remain visible together.</p>
       </div>
 
       <div className="remote-immersive__layout">
         <div className="remote-screen-column">
-          <div
-            className="remote-stage relative overflow-hidden rounded-[1.4rem] border border-cyan-100/20 bg-[#02060c] shadow-2xl shadow-black/50 touch-none"
-            style={{ aspectRatio: `${frameSize.width} / ${frameSize.height}` }}
-          >
-            <div className="absolute left-3 top-3 z-20 flex rounded-lg border border-white/10 bg-slate-950/80 p-1 backdrop-blur-md">
-              <button aria-pressed={controlMode === "pointer"} onClick={() => void switchControlMode("pointer")} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold", controlMode === "pointer" ? "bg-cyan-200 text-slate-950" : "text-slate-300")}><MousePointer2 className="h-3 w-3" />Pointer</button>
-              <button aria-pressed={controlMode === "scroll"} onClick={() => void switchControlMode("scroll")} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold", controlMode === "scroll" ? "bg-amber-300 text-slate-950" : "text-slate-300")}><ScrollText className="h-3 w-3" />Scroll</button>
-              <button aria-label={controlMode === "window" ? "Exit window move mode" : "Move active window"} aria-pressed={controlMode === "window"} disabled={selectingWindow} onClick={() => void (controlMode === "window" ? switchControlMode("pointer") : activateWindowMove())} className={cn("flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-semibold disabled:opacity-60", controlMode === "window" ? "bg-emerald-300 text-slate-950" : "text-slate-300")}><Move className={cn("h-3 w-3", selectingWindow && "animate-pulse")} />Move</button>
+          <MetalPanel className="remote-monitor-panel">
+            <div className="remote-monitor-labels"><EngravedLabel>REMOTE DISPLAY</EngravedLabel><span>{frameSize.width}:{frameSize.height}</span></div>
+            <div className="remote-screen-bezel">
+              <div className="remote-screen-mode">
+                <button aria-pressed={controlMode === "pointer"} onClick={() => void switchControlMode("pointer")} className={cn(controlMode === "pointer" && "is-active")}><MousePointer2 className="h-3 w-3" />Pointer</button>
+                <button aria-pressed={controlMode === "scroll"} onClick={() => void switchControlMode("scroll")} className={cn(controlMode === "scroll" && "is-active")}><ScrollText className="h-3 w-3" />Scroll</button>
+                <button aria-label={controlMode === "window" ? "Exit window move mode" : "Move active window"} aria-pressed={controlMode === "window"} disabled={selectingWindow} onClick={() => void (controlMode === "window" ? switchControlMode("pointer") : activateWindowMove())} className={cn(controlMode === "window" && "is-active")}><Move className={cn("h-3 w-3", selectingWindow && "animate-pulse")} />Move</button>
+              </div>
+              <div className="remote-stage relative overflow-hidden touch-none" style={{ aspectRatio: `${frameSize.width} / ${frameSize.height}` }}>
+                {frameUrl ? <img src={frameUrl} alt={`Live screen from ${status.device_name}`} draggable={false} onLoad={(event) => setFrameSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><RefreshCw className="h-7 w-7 animate-spin" /></div>}
+                <div aria-label="Mac trackpad surface" aria-description={controlMode === "window" ? "Drag to reposition the selected Mac window" : "Drag to move the pointer, tap to click, and double-tap to double-click"} className={cn("absolute inset-0", controlMode === "pointer" ? "cursor-crosshair" : controlMode === "window" ? "cursor-move ring-2 ring-inset ring-emerald-300/70" : "cursor-ns-resize")} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={cancelPointer} onWheel={(event) => { event.preventDefault(); void send({ type: "scroll", dx: clampScroll(-event.deltaX), dy: clampScroll(-event.deltaY) }) }} />
+                {surfaceFeedback && <span key={surfaceFeedback.id} role="status" className="remote-tap-feedback" style={{ left: `${surfaceFeedback.x * 100}%`, top: `${surfaceFeedback.y * 100}%` }}><span className="remote-tap-feedback__ring" /><span className="remote-tap-feedback__label">{surfaceFeedback.label}</span></span>}
+                {controlMode === "pointer" && <span className="remote-pointer-hint">Tap to click / Double-tap to open</span>}
+                {controlMode === "window" && <span className="remote-pointer-hint">Drag to move the selected window</span>}
+                <div className="remote-scroll-tab" aria-label="Window scroll control">
+                  <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                  <input aria-label="Scroll active Mac window" className="remote-scroll-slider" type="range" min={-100} max={100} step={2} value={scrollSlider} onChange={(event) => moveScrollSlider(Number(event.currentTarget.value))} onPointerUp={releaseScrollSlider} onPointerCancel={releaseScrollSlider} onTouchEnd={releaseScrollSlider} onBlur={releaseScrollSlider} />
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Scroll</span>
+                </div>
+              </div>
             </div>
-            {frameUrl ? <img src={frameUrl} alt={`Live screen from ${status.device_name}`} draggable={false} onLoad={(event) => setFrameSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><RefreshCw className="h-7 w-7 animate-spin text-cyan-200/60" /></div>}
-            <div
-              aria-label="Mac trackpad surface"
-              aria-description={controlMode === "window" ? "Drag to reposition the selected Mac window" : "Drag to move the pointer, tap to click, and double-tap to double-click"}
-              className={cn("absolute inset-0", controlMode === "pointer" ? "cursor-crosshair" : controlMode === "window" ? "cursor-move ring-2 ring-inset ring-emerald-300/70" : "cursor-ns-resize")}
-              onPointerDown={pointerDown}
-              onPointerMove={pointerMove}
-              onPointerUp={pointerUp}
-              onPointerCancel={cancelPointer}
-              onWheel={(event) => {
-                event.preventDefault()
-                void send({ type: "scroll", dx: clampScroll(-event.deltaX), dy: clampScroll(-event.deltaY) })
-              }}
-            />
-            {surfaceFeedback && <span
-              key={surfaceFeedback.id}
-              role="status"
-              className="remote-tap-feedback"
-              style={{ left: `${surfaceFeedback.x * 100}%`, top: `${surfaceFeedback.y * 100}%` }}
-            >
-              <span className="remote-tap-feedback__ring" />
-              <span className="remote-tap-feedback__label">{surfaceFeedback.label}</span>
-            </span>}
-            {controlMode === "pointer" && <span className="remote-pointer-hint">Tap to click · Double-tap to open</span>}
-            {controlMode === "window" && <span className="remote-pointer-hint border-emerald-300/20 text-emerald-100">Drag to move the selected window</span>}
-            <div className="remote-scroll-tab" aria-label="Window scroll control">
-              <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
-              <input
-                aria-label="Scroll active Mac window"
-                className="remote-scroll-slider"
-                type="range"
-                min={-100}
-                max={100}
-                step={2}
-                value={scrollSlider}
-                onChange={(event) => moveScrollSlider(Number(event.currentTarget.value))}
-                onPointerUp={releaseScrollSlider}
-                onPointerCancel={releaseScrollSlider}
-                onTouchEnd={releaseScrollSlider}
-                onBlur={releaseScrollSlider}
-              />
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Scroll</span>
-            </div>
-            <span className="remote-corner remote-corner--tl" /><span className="remote-corner remote-corner--tr" /><span className="remote-corner remote-corner--bl" /><span className="remote-corner remote-corner--br" />
-          </div>
-          <div className="remote-click-row mt-2 grid grid-cols-3 gap-2">
-            <Button variant="outline" size="sm" onClick={() => void send({ type: "tap", ...pointerPosition.current })}><MousePointerClick className="mr-1.5 h-4 w-4" />Click</Button>
-            <Button variant="outline" size="sm" onClick={() => void send({ type: "double_tap", ...pointerPosition.current })}>Double-click</Button>
-            <Button variant="outline" size="sm" onClick={() => void send({ type: "secondary_tap", ...pointerPosition.current })}>Right-click</Button>
+          </MetalPanel>
+          <div className="remote-click-row">
+            <PhysicalButton onClick={() => void send({ type: "tap", ...pointerPosition.current })}><MousePointerClick className="h-4 w-4" />Click</PhysicalButton>
+            <PhysicalButton onClick={() => void send({ type: "double_tap", ...pointerPosition.current })}>Double-click</PhysicalButton>
+            <PhysicalButton onClick={() => void send({ type: "secondary_tap", ...pointerPosition.current })}>Right-click</PhysicalButton>
           </div>
         </div>
 
         <div className="remote-control-rail">
-          <div className="rounded-[1.4rem] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(8,47,73,.72),rgba(2,6,23,.86))] p-3 shadow-lg shadow-cyan-950/20 backdrop-blur-xl">
-            <div className="mb-2 flex items-start justify-between gap-3">
-              <div>
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-white"><Sparkles className="h-3.5 w-3.5 text-cyan-200" />Ask Griffin</p>
-                <p className="mt-0.5 text-[10px] leading-4 text-cyan-100/60">Tell Griffin what to do on your Mac.</p>
-              </div>
-              <span className="rounded-full border border-cyan-200/15 bg-cyan-200/5 px-2 py-1 font-mono text-[8px] uppercase tracking-[.14em] text-cyan-100/60">Agent</span>
-            </div>
-            {commandReply && <div role="status" aria-label="Griffin response" className="mb-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] leading-5 text-slate-200">{voiceTranscript && <p className="mb-1 font-mono text-[9px] uppercase tracking-[.12em] text-cyan-100/55">Heard: {voiceTranscript}</p>}{commandReply}</div>}
-            <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+          <MetalPanel className="griffin-agent-module">
+            <div className="hw-control-heading"><EngravedLabel>ASK GRIFFIN</EngravedLabel><StatusLED state={agentLed} label={agentState} /></div>
+            <InstrumentDisplay className="griffin-agent-display">
+              {commandReply ? <div role="status" aria-label="Griffin response">{voiceTranscript && <p className="griffin-terminal-meta">Heard: {voiceTranscript}</p>}<p>{commandReply}</p></div> : <p className="griffin-terminal-idle">&gt; AGENT ONLINE<br />&gt; AWAITING INSTRUCTION</p>}
+            </InstrumentDisplay>
+            <div className="griffin-command-entry">
               <Input
                 aria-label="Message Griffin from phone"
                 value={command}
@@ -799,35 +775,32 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
                     void submitCommand()
                   }
                 }}
-                placeholder="e.g. Open YouTube and search for…"
+                placeholder="Tell Griffin what to do..."
+                className="griffin-terminal-input"
               />
-              <Button size="icon" aria-label="Send command to Griffin" disabled={!command.trim() || commandBusy || voiceState !== "idle"} onClick={() => void submitCommand()}>
+              <PhysicalButton tone="metal" className="hw-square-key" aria-label="Send command to Griffin" disabled={!command.trim() || commandBusy || voiceState !== "idle"} onClick={() => void submitCommand()}>
                 {commandBusy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
-              </Button>
-              <Button
-                size="icon"
-                variant={voiceState === "listening" ? "destructive" : "outline"}
+              </PhysicalButton>
+              <PhysicalButton
+                tone={voiceState === "listening" ? "amber" : "dark"}
+                className="hw-square-key"
                 aria-label={voiceState === "listening" ? "Stop phone voice command" : "Start phone voice command"}
                 aria-pressed={voiceState === "listening"}
                 disabled={voiceState === "transcribing" || commandBusy}
                 onClick={() => void toggleVoiceRecording()}
               >
                 {voiceState === "transcribing" ? <RefreshCw className="h-4 w-4 animate-spin" /> : voiceState === "listening" ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </Button>
+              </PhysicalButton>
             </div>
-            {voiceState === "listening" && <p role="status" className="mt-2 flex items-center gap-2 text-[10px] font-semibold text-red-200"><span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />Listening on this phone · tap stop when finished</p>}
-            {voiceState === "transcribing" && <p role="status" className="mt-2 text-[10px] text-cyan-100/70">Transcribing locally and asking Griffin…</p>}
-            {window.isSecureContext === false && voiceState === "idle" && <p className="mt-2 text-[9px] leading-4 text-amber-100/70">Live microphone control requires a trusted HTTPS phone link.</p>}
-            {commandError && <p role="alert" className="mt-2 text-[10px] leading-4 text-red-200">{commandError}</p>}
-          </div>
+            {voiceState === "listening" && <p role="status" className="griffin-module-note is-listening">Listening on this phone. Press MIC to stop.</p>}
+            {voiceState === "transcribing" && <p role="status" className="griffin-module-note">Transcribing locally and asking Griffin...</p>}
+            {window.isSecureContext === false && voiceState === "idle" && <p className="griffin-module-note is-warning">Live microphone control requires a trusted HTTPS phone link.</p>}
+            {commandError && <p role="alert" className="griffin-module-note is-error">{commandError}</p>}
+          </MetalPanel>
 
-          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-white"><Volume2 className="h-4 w-4 text-cyan-200" />Mac volume</p>
-              <span aria-live="polite" className="font-mono text-[10px] font-semibold text-cyan-100/70">{volumeReady ? `${volume}%` : "Loading…"}</span>
-            </div>
-            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5">
-              <VolumeX className="h-4 w-4 text-slate-500" aria-hidden="true" />
+          <ControlGroup label="MAC VOLUME" meta={<span aria-live="polite" className="hw-readout">{volumeReady ? `${volume}%` : "LOADING"}</span>} className="griffin-volume-module">
+            <div className="griffin-volume-control">
+              <VolumeX className="h-4 w-4" aria-hidden="true" />
               <input
                 type="range"
                 min={0}
@@ -837,28 +810,28 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
                 disabled={!volumeReady}
                 aria-label="Mac output volume"
                 onChange={(event) => changeVolume(Number(event.currentTarget.value))}
-                className="h-1.5 w-full cursor-pointer accent-cyan-200 disabled:cursor-wait disabled:opacity-50"
+                className="griffin-volume-slider"
               />
-              <Volume2 className="h-4 w-4 text-cyan-200" aria-hidden="true" />
+              <div aria-hidden className="griffin-volume-knob" style={{ transform: `rotate(${-135 + volume * 2.7}deg)` }}><span /></div>
             </div>
-            {volumeError && <p role="alert" className="mt-2 text-[10px] leading-4 text-amber-200">{volumeError}</p>}
-          </div>
+            {volumeError && <p role="alert" className="griffin-module-note is-warning">{volumeError}</p>}
+          </ControlGroup>
 
-          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
-            <div className="mb-3 flex items-center justify-between"><p className="text-xs font-semibold text-white">Open on your Mac</p><span className="font-mono text-[9px] uppercase tracking-[.18em] text-slate-500">Launch dock</span></div>
-            <div className="grid grid-cols-5 gap-2">
+          <WoodPanel className="griffin-launcher">
+            <div className="hw-control-heading"><EngravedLabel>OPEN ON YOUR MAC</EngravedLabel><span className="hw-launcher-mark">5 CHANNEL</span></div>
+            <div className="griffin-app-grid">
               {REMOTE_APPS.map(({ id, label, icon: Icon, tone }) => (
-                <button key={id} disabled={launchingApp !== null} onClick={() => void launchApp(id)} aria-label={`Open ${label}`} className="group flex min-w-0 flex-col items-center gap-1.5 rounded-xl p-1 text-center text-[9px] font-medium text-slate-300 transition hover:bg-white/[.05] disabled:opacity-50">
-                  <span className={cn("grid h-10 w-10 place-items-center rounded-xl border transition-transform group-active:scale-95", tone)}>{launchingApp === id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}</span>
-                  <span className="w-full truncate">{label}</span>
+                <button key={id} disabled={launchingApp !== null} onClick={() => void launchApp(id)} aria-label={`Open ${label}`} className={cn("griffin-app-key", `griffin-app-key--${id}`, tone)}>
+                  <span>{launchingApp === id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}</span>
+                  <strong>{label}</strong>
                 </button>
               ))}
             </div>
-          </div>
+          </WoodPanel>
 
-          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
-            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
-              <Button variant="ghost" size="icon" aria-label="Toggle keyboard controls" onClick={() => setControlsOpen((value) => !value)}><Keyboard className="h-5 w-5" /></Button>
+          <ControlGroup label="REMOTE KEYBOARD" className="griffin-keyboard-module">
+            <div className="griffin-keyboard-entry">
+              <PhysicalButton tone="metal" className="hw-square-key" aria-label="Toggle keyboard controls" onClick={() => setControlsOpen((value) => !value)}><Keyboard className="h-5 w-5" /></PhysicalButton>
               <Input
                 value={text}
                 inputMode="text"
@@ -873,11 +846,12 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
                   }
                 }}
                 placeholder="Type into the selected Mac field…"
+                className="griffin-hardware-input"
               />
-              <Button disabled={!text || sendingText} onClick={() => void submitText()}>{sendingText ? "Sending…" : "Send"}</Button>
+              <PhysicalButton tone="metal" aria-label="Send" disabled={!text || sendingText} onClick={() => void submitText()}>{sendingText ? "Sending" : "Send to Mac"}</PhysicalButton>
             </div>
-            {textDelivered && <p role="status" className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[.12em] text-emerald-300">Text sent to Mac</p>}
-            {controlsOpen && <div className="mt-3 flex flex-wrap items-center justify-center gap-2 border-t border-white/10 pt-3">
+            {textDelivered && <p role="status" className="griffin-module-note is-success">Text sent to Mac</p>}
+            {controlsOpen && <RecessedPanel className="griffin-key-cluster">
               <Button variant="outline" size="sm" onClick={() => void send({ type: "key", key: "escape" })}>esc</Button>
               <Button variant="outline" size="icon" aria-label="Command Enter" onClick={() => void send({ type: "key", key: "enter", modifiers: ["command"] })}><Command className="h-4 w-4" /></Button>
               <Button variant="outline" size="icon" aria-label="Arrow left" onClick={() => void send({ type: "key", key: "left" })}><ArrowLeft className="h-4 w-4" /></Button>
@@ -885,26 +859,22 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
               <Button variant="outline" size="icon" aria-label="Arrow down" onClick={() => void send({ type: "key", key: "down" })}><ArrowDown className="h-4 w-4" /></Button>
               <Button variant="outline" size="icon" aria-label="Arrow right" onClick={() => void send({ type: "key", key: "right" })}><ArrowRight className="h-4 w-4" /></Button>
               <Button variant="outline" size="sm" onClick={() => void send({ type: "key", key: "enter" })}>return</Button>
-            </div>}
-          </div>
-          <div className="rounded-[1.4rem] border border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-white">Focused window</p>
-              <span className="text-[10px] font-medium text-slate-300">Display controls</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" aria-label="Put focused window in full screen" onClick={() => void send({ type: "enter_fullscreen" })}>
+            </RecessedPanel>}
+          </ControlGroup>
+          <ControlGroup label="FOCUSED WINDOW" meta={<span className="hw-launcher-mark">DISPLAY</span>} className="griffin-window-module">
+            <div className="griffin-window-controls">
+              <PhysicalButton aria-label="Put focused window in full screen" onClick={() => void send({ type: "enter_fullscreen" })}>
                 <Maximize2 className="mr-1.5 h-4 w-4" />Full screen
-              </Button>
-              <Button variant="outline" size="sm" aria-label="Take focused window out of full screen" onClick={() => void send({ type: "exit_fullscreen" })}>
+              </PhysicalButton>
+              <PhysicalButton aria-label="Take focused window out of full screen" onClick={() => void send({ type: "exit_fullscreen" })}>
                 <Minimize2 className="mr-1.5 h-4 w-4" />Exit full screen
-              </Button>
+              </PhysicalButton>
             </div>
-          </div>
-          <p className="rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-center text-[10px] leading-4 tracking-[.06em] text-slate-400">Tap click · Double-tap open · Hold right-click · Two-finger scroll</p>
+          </ControlGroup>
+          <p className="griffin-instruction-plate">TAP CLICK / DOUBLE-TAP OPEN / HOLD RIGHT-CLICK / TWO-FINGER SCROLL</p>
         </div>
       </div>
-      {(controlError || frameError) && <p role="alert" className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">{controlError || frameError}</p>}
+      {(controlError || frameError) && <p role="alert" className="griffin-hardware-alert">{controlError || frameError}</p>}
     </section>
   )
 }

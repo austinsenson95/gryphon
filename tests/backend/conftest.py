@@ -25,6 +25,16 @@ def settings(tmp_path, monkeypatch) -> Settings:
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.delenv("SEARCH_API_KEY", raising=False)
     monkeypatch.delenv("SEARCH_API_URL", raising=False)
+    for key in (
+        "PHONE_AGENT_ENV_FILE",
+        "PHONE_WEBHOOK_SECRET",
+        "PHONE_PUBLIC_URL",
+        "VOBIZ_AUTH_ID",
+        "VOBIZ_AUTH_TOKEN",
+        "VOBIZ_DID",
+        "SARVAM_API_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
     return Settings(
         database_url=f"sqlite:///{tmp_path}/test.db",
         _env_file=None,

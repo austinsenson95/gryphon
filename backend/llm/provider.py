@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from urllib.parse import quote_plus
 
 from backend.core.config import Settings
 from backend.core.logging import get_logger
@@ -41,6 +42,16 @@ _YOUTUBE_SEARCH_RE = re.compile(
 _SEARCH_YOUTUBE_RE = re.compile(
     r"search\s+youtube(?:\s+for)?\s+(.+)", re.IGNORECASE | re.DOTALL
 )
+_MEDIA_PLAY_SERVICE_FIRST_RE = re.compile(
+    r"(?:open\s+)?(?P<service>youtube|spotify)\s+(?:and\s+)?"
+    r"(?:play|listen\s+to)\s+(?P<query>.+)",
+    re.IGNORECASE | re.DOTALL,
+)
+_MEDIA_PLAY_SERVICE_LAST_RE = re.compile(
+    r"(?:play|listen\s+to)\s+(?P<query>.+?)\s+"
+    r"(?:on|in)\s+(?P<service>youtube|spotify)\b",
+    re.IGNORECASE | re.DOTALL,
+)
 _OPEN_APP_RE = re.compile(
     r"open\s+(?:my\s+)?(safari|chrome|google chrome|firefox|arc|vs\s*code|"
     r"visual studio code|terminal|iterm|notes|calendar|finder|slack|spotify)\b",
@@ -57,6 +68,11 @@ _OPEN_PROJECT_RE = re.compile(r"open\s+(?:my\s+)?(\w[\w-]*)\s+project\b", re.IGN
 _OPEN_FOLDER_RE = re.compile(r"open\s+(?:my\s+)?(\w[\w-]*)\s+folder\b", re.IGNORECASE)
 _WORKFLOW_RE = re.compile(
     r"(?:start|run)\s+(?:my\s+)?([\w\s-]+?)(?:\s+workflow)?\s*$", re.IGNORECASE
+)
+_CALL_CONTACT_RE = re.compile(
+    r"\bcall\s+(?:my\s+)?(?:friend\s+)?(?P<name>[A-Za-z][A-Za-z .'-]{0,60}?)\s+"
+    r"(?:and\s+ask|to\s+ask|and\s+find\s+out|to\s+find\s+out|about)\s+(?P<mission>.+)",
+    re.IGNORECASE | re.DOTALL,
 )
 # Chained multi-action connectors (Phase 1 multi-step requests).
 _CHAIN_RE = re.compile(r"\s+(?:and\s+then|then|and|,)\s+", re.IGNORECASE)
@@ -103,7 +119,7 @@ def _tool_call(name: str, arguments: dict) -> LLMToolCall:
 
 
 class MockLLMProvider(LLMProvider):
-    """Deterministic rule-based provider used when no model is configured.
+    r"""Deterministic rule-based provider used when no model is configured.
 
     Rules (first match wins, evaluated against the latest user message):
       * contains "time"                          -> system.get_time {}
@@ -133,21 +149,26 @@ class MockLLMProvider(LLMProvider):
 
         last = messages[-1]
         if last.role == "tool":
+            user_text = self._latest_user_text(messages)
+            media = self._plan_media_playback(user_text)
+            if media:
+                followup = self._media_playback_followup(messages, *media)
+                if followup is not None:
+                    return followup
             return LLMResponse(content=self._synthesize_tool_answer(messages))
 
-        user_text = next(
-            (
-                m.content
-                for m in reversed(messages)
-                if m.role == "user"
-                and not m.content.startswith("CURRENT TASK STATE:")
-            ),
-            "",
-        )
+        user_text = self._latest_user_text(messages)
         lowered = user_text.lower()
 
         if "time" in lowered:
             return LLMResponse(tool_calls=[_tool_call("system.get_time", {})])
+
+        media = self._plan_media_playback(user_text)
+        if media:
+            service, query = media
+            return LLMResponse(
+                tool_calls=[_tool_call("browser.open", self._media_search_args(service, query))]
+            )
 
         # A site-scoped search is one semantic action. Keep it together rather
         # than splitting it into "open YouTube" plus a generic web search.
@@ -168,6 +189,149 @@ class MockLLMProvider(LLMProvider):
         return LLMResponse(content=_MOCK_IDENTITY)
 
     # ------------------------------------------------------------------ planning
+
+    @staticmethod
+    def _latest_user_text(messages: list[LLMMessage]) -> str:
+        return next(
+            (
+                m.content
+                for m in reversed(messages)
+                if m.role == "user"
+                and not m.content.startswith("CURRENT TASK STATE:")
+            ),
+            "",
+        )
+
+    @staticmethod
+    def _plan_media_playback(text: str) -> tuple[str, str] | None:
+        match = _MEDIA_PLAY_SERVICE_FIRST_RE.search(text)
+        if match is None:
+            match = _MEDIA_PLAY_SERVICE_LAST_RE.search(text)
+        if match is None:
+            return None
+        service = match.group("service").lower()
+        query = match.group("query").strip().rstrip("?.!")
+        return (service, query) if query else None
+
+    @staticmethod
+    def _media_search_args(service: str, query: str) -> dict:
+        encoded = quote_plus(query)
+        if service == "youtube":
+            return {"url": f"https://www.youtube.com/results?search_query={encoded}"}
+        return {"url": f"https://open.spotify.com/search/{encoded}"}
+
+    def _media_playback_followup(
+        self,
+        messages: list[LLMMessage],
+        service: str,
+        query: str,
+    ) -> LLMResponse | None:
+        """Drive a deterministic observe/click/verify media flow in mock mode.
+
+        The tools are still real. This only chooses the next registered tool,
+        which lets offline mode exercise the same multi-turn agent loop as a
+        live model.
+        """
+        last = messages[-1]
+        try:
+            result = json.loads(last.content)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        if not result.get("success"):
+            return None
+        data = result.get("data") or {}
+        if data.get("mock"):
+            return None
+
+        if last.name in ("browser.open", "browser.open_url"):
+            return LLMResponse(tool_calls=[_tool_call("browser.inspect", {})])
+
+        if last.name == "browser.inspect":
+            current_url = str(data.get("url") or (data.get("page_state") or {}).get("url") or "")
+            on_player = (
+                service == "youtube" and "/watch" in current_url
+            ) or (
+                service == "spotify" and any(part in current_url for part in ("/track/", "/album/", "/artist/"))
+            )
+            if on_player:
+                pause_control = self._media_control_candidate(data.get("elements") or [], "pause")
+                if pause_control is not None:
+                    return LLMResponse(
+                        content=f'I started playing "{query}" on {service.title()}.'
+                    )
+                play_control = self._media_control_candidate(data.get("elements") or [], "play")
+                if play_control is None:
+                    return LLMResponse(
+                        content=(
+                            f'I opened "{query}" on {service.title()}, but could not '
+                            "verify or start playback from the available controls."
+                        )
+                    )
+                return LLMResponse(
+                    tool_calls=[
+                        _tool_call(
+                            "browser.click",
+                            {
+                                "role": play_control.get("role") or "button",
+                                "name": play_control.get("name") or "Play",
+                                "index": play_control.get("index"),
+                                "wait_ms": 1000,
+                            },
+                        )
+                    ]
+                )
+
+            candidate = self._media_result_candidate(service, query, data.get("elements") or [])
+            if candidate is None:
+                return LLMResponse(
+                    content=(
+                        f'I opened {service.title()} results for "{query}", but could not '
+                        "identify a playable result on the page."
+                    )
+                )
+            args = {
+                "role": candidate.get("role") or "link",
+                "name": candidate.get("name") or query,
+                "index": candidate.get("index"),
+                "wait_ms": 1500,
+            }
+            return LLMResponse(tool_calls=[_tool_call("browser.click", args)])
+
+        if last.name == "browser.click":
+            return LLMResponse(tool_calls=[_tool_call("browser.inspect", {})])
+
+        return None
+
+    @staticmethod
+    def _media_result_candidate(service: str, query: str, elements: list[dict]) -> dict | None:
+        query_terms = [term for term in re.findall(r"[a-z0-9]+", query.lower()) if len(term) > 2]
+        href_markers = ("/watch",) if service == "youtube" else ("/track/", "/album/", "/artist/")
+        candidates: list[tuple[int, dict]] = []
+        for element in elements:
+            if element.get("disabled"):
+                continue
+            href = str(element.get("href") or "").lower()
+            if not any(marker in href for marker in href_markers):
+                continue
+            name = str(element.get("name") or "").lower()
+            score = sum(1 for term in query_terms if term in name)
+            candidates.append((score, element))
+        if not candidates:
+            return None
+        return max(candidates, key=lambda item: item[0])[1]
+
+    @staticmethod
+    def _media_control_candidate(elements: list[dict], action: str) -> dict | None:
+        action = action.lower()
+        for element in elements:
+            if element.get("disabled"):
+                continue
+            role = str(element.get("role") or "").lower()
+            name = str(element.get("name") or "").strip().lower()
+            if role == "button" and re.search(rf"\b{re.escape(action)}\b", name):
+                return element
+        return None
 
     def _plan_compound(self, text: str) -> list[tuple[str, dict]] | None:
         """Split "X and Y" / "X then Y" into a plan only when BOTH clauses
@@ -192,6 +356,15 @@ class MockLLMProvider(LLMProvider):
     def _plan_single(self, text: str) -> tuple[str, dict] | None:
         """Resolve one clause to a single (tool, args) plan, or None."""
         lowered = text.lower().strip()
+
+        match = _CALL_CONTACT_RE.search(text)
+        if match:
+            name = match.group("name").strip()
+            mission = match.group("mission").strip().rstrip("?.!")
+            return (
+                "phone.call_contact",
+                {"contact_name": name, "mission": mission},
+            )
 
         youtube = self._plan_youtube_search(text)
         if youtube:
@@ -293,6 +466,17 @@ class MockLLMProvider(LLMProvider):
             if data.get("mock"):
                 lines.append("(mock results — no search API configured)")
             return "\n".join(lines)
+        if name == "phone.call_contact":
+            mode = "mock mode" if data.get("mock") else "the Vobiz line"
+            return (
+                f"I queued the call to {data.get('contact_name', 'the contact')} through {mode}. "
+                f"Call ID: {data.get('id', 'unknown')}. I’ll post the transcript and findings in Calls."
+            )
+        if name == "phone.get_call_status":
+            summary = data.get("summary")
+            return summary or f"The call to {data.get('contact_name', 'the contact')} is {data.get('status', 'unknown')}."
+        if name == "phone.cancel_call":
+            return f"The call to {data.get('contact_name', 'the contact')} is {data.get('status', 'cancelled')}."
         if name in ("desktop.open_url", "browser.open_url", "browser.open"):
             if data.get("opened"):
                 extra = f" — page title: \"{data.get('title')}\"" if data.get("title") else ""

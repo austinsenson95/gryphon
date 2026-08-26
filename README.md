@@ -142,6 +142,20 @@ phone link. Certificates and private keys under `config/tls/` are gitignored.
 
 The frontend derives the API/WebSocket host from the page's hostname, so chat, live events, and avatar state work from the phone with zero extra configuration. Dev servers are LAN-only — do not expose them to the public internet.
 
+## 7a. Outbound phone missions (Vobiz)
+
+Griffin can call a saved contact, follow a mission-specific question list, transcribe each answer, and stream the call status, transcript, and findings to the **Calls** workspace on both desktop and phone layouts.
+
+The current local setup reuses credentials from the Kimi phone-agent project through `PHONE_AGENT_ENV_FILE`; secrets are read at runtime and are not copied into this repository. For a standalone setup, configure `VOBIZ_AUTH_ID`, `VOBIZ_AUTH_TOKEN`, `VOBIZ_DID`, and `SARVAM_API_KEY` directly in `config/.env`.
+
+Vobiz must be able to reach Griffin's webhook endpoints. During local development, start an HTTPS tunnel to Griffin's backend port:
+
+```bash
+ngrok http 8000
+```
+
+Griffin auto-discovers a local ngrok tunnel. For another tunnel or a deployed backend, set `PHONE_PUBLIC_URL=https://your-public-host`. Then add contacts in **Calls**, or ask Griffin: “Call Maya and ask which day works for dinner.” Call and cancel tools require confirmation; status checks are read-only. No call is placed until a specific mission is submitted.
+
 ## 8. API endpoints
 
 | Method | Path | Description |
@@ -153,6 +167,10 @@ The frontend derives the API/WebSocket host from the page's hostname, so chat, l
 | POST | `/api/chat` | `{"message": "...", "session_id": null}` → `{"message_id","task_id","session_id","response","tool_calls"}` |
 | POST | `/api/voice` | raw audio body + `X-Session-Id` header → transcript + same shape as `/api/chat` |
 | POST | `/api/remote/voice` | paired-phone audio with bearer token → local transcription + Griffin execution |
+| GET/POST | `/api/phone/contacts` | list or create saved calling contacts |
+| GET/POST | `/api/phone/calls` | list calls or start a phone mission |
+| GET | `/api/phone/calls/{call_id}` | current status, transcript, and findings |
+| POST | `/api/phone/calls/{call_id}/cancel` | stop an active call |
 | GET | `/api/tasks/{task_id}` | task + its tool calls |
 | GET | `/api/events?limit=50` | recent persisted events (chronological) |
 | WS | `/ws` | live event stream (hello + last-20 replay on connect) |
@@ -179,6 +197,9 @@ Smoke-test the stream any time: `python scripts/ws_smoke.py`.
 | `desktop.open_project` | safe | open a named project from `PROJECTS` (VS Code if available) |
 | `desktop.open_terminal` | safe | open Terminal, optionally in an allowed directory |
 | `workflow.run` | safe | run a registered workflow (see below) |
+| `phone.call_contact` | **confirm** | call a saved contact with a mission and question list |
+| `phone.get_call_status` | safe | retrieve live status, transcript, and findings |
+| `phone.cancel_call` | **confirm** | end a queued or active phone call |
 | `system.execute_shell` | **privileged** | registered stub, never exposed to the LLM, refuses execution |
 
 Permissions: `safe` auto-executes · `confirm` emits `USER_APPROVAL_REQUIRED` (auto-approved in Phase 0/1 — the hook for a future approval UI) · `privileged` is hidden from the LLM and refuses execution.

@@ -47,6 +47,84 @@ async def test_mock_youtube_search_stays_site_scoped(mock_provider):
     assert response.tool_calls[0].arguments == {"query": "ambient focus music"}
 
 
+async def test_mock_youtube_playback_uses_controlled_browser_chain(mock_provider):
+    import json
+
+    messages = _user("Open YouTube and play Pink Floyd songs")
+    response = await mock_provider.generate(messages)
+    assert response.tool_calls[0].name == "browser.open"
+    assert "youtube.com/results" in response.tool_calls[0].arguments["url"]
+
+    messages.append(
+        LLMMessage(
+            role="tool",
+            name="browser.open",
+            tool_call_id=response.tool_calls[0].id,
+            content=json.dumps({"success": True, "data": {"url": response.tool_calls[0].arguments["url"]}}),
+        )
+    )
+    response = await mock_provider.generate(messages)
+    assert response.tool_calls[0].name == "browser.inspect"
+
+    messages.append(
+        LLMMessage(
+            role="tool",
+            name="browser.inspect",
+            tool_call_id=response.tool_calls[0].id,
+            content=json.dumps(
+                {
+                    "success": True,
+                    "data": {
+                        "elements": [
+                            {"index": 7, "role": "link", "name": "Pink Floyd - Time", "href": "/watch?v=123"}
+                        ]
+                    },
+                }
+            ),
+        )
+    )
+    response = await mock_provider.generate(messages)
+    assert response.tool_calls[0].name == "browser.click"
+    assert response.tool_calls[0].arguments["index"] == 7
+
+    messages.append(
+        LLMMessage(
+            role="tool",
+            name="browser.click",
+            tool_call_id=response.tool_calls[0].id,
+            content=json.dumps({"success": True, "data": {"url": "https://www.youtube.com/watch?v=123"}}),
+        )
+    )
+    response = await mock_provider.generate(messages)
+    assert response.tool_calls[0].name == "browser.inspect"
+
+    messages.append(
+        LLMMessage(
+            role="tool",
+            name="browser.inspect",
+            tool_call_id=response.tool_calls[0].id,
+            content=json.dumps(
+                {
+                    "success": True,
+                    "data": {
+                        "url": "https://www.youtube.com/watch?v=123",
+                        "elements": [{"index": 2, "role": "button", "name": "Pause (k)"}],
+                    },
+                }
+            ),
+        )
+    )
+    response = await mock_provider.generate(messages)
+    assert response.tool_calls == []
+    assert "started playing" in response.content
+
+
+async def test_mock_spotify_playback_uses_web_player(mock_provider):
+    response = await mock_provider.generate(_user("Play Pink Floyd on Spotify"))
+    assert response.tool_calls[0].name == "browser.open"
+    assert response.tool_calls[0].arguments["url"] == "https://open.spotify.com/search/Pink+Floyd"
+
+
 async def test_mock_ignores_injected_task_state_when_planning(mock_provider):
     response = await mock_provider.generate(
         _user("Open YouTube and search for ambient focus music")

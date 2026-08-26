@@ -227,6 +227,34 @@ export function GriffinProvider({ children }: { children: ReactNode }) {
           }
           break
         }
+        case "PHONE_CALL_COMPLETED": {
+          if (!isReplay) {
+            const call = event.data.call && typeof event.data.call === "object" && !Array.isArray(event.data.call)
+              ? event.data.call as Record<string, unknown>
+              : {}
+            pushNotification({
+              id: `notif_${event.id}`,
+              level: "info",
+              title: `Call with ${asString(call.contact_name) ?? "contact"} finished`,
+              body: asString(call.summary) ?? "Open Calls to review the findings and transcript.",
+            })
+          }
+          break
+        }
+        case "PHONE_CALL_FAILED": {
+          if (!isReplay) {
+            const call = event.data.call && typeof event.data.call === "object" && !Array.isArray(event.data.call)
+              ? event.data.call as Record<string, unknown>
+              : {}
+            pushNotification({
+              id: `notif_${event.id}`,
+              level: "error",
+              title: "Phone call failed",
+              body: asString(call.error) ?? "Open Calls for details.",
+            })
+          }
+          break
+        }
         case "PERMISSION_REQUIRED":
         case "USER_APPROVAL_REQUIRED": {
           if (!isReplay) {

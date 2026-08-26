@@ -150,6 +150,7 @@ async def test_agent_unknown_tool(db, bus, registry, settings):
 
 
 async def test_agent_max_iterations_guard(db, bus, registry, settings):
+    settings.agent_max_steps = 4
     provider = ScriptedProvider(
         *[LLMResponse(tool_calls=[LLMToolCall(id=f"c{i}", name="system.get_time", arguments={})]) for i in range(6)]
     )
@@ -158,6 +159,6 @@ async def test_agent_max_iterations_guard(db, bus, registry, settings):
 
     result = await agent.run(session.id, "loop forever")
 
-    assert provider.calls == 4  # MAX_TOOL_ITERATIONS
+    assert provider.calls == 4  # configured safety bound
     assert "maximum number of tool steps" in result.response
     assert len(result.tool_calls) == 4

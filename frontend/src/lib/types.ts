@@ -26,6 +26,12 @@ export const EVENT_TYPES = [
   "REMOTE_SESSION_STARTED",
   "REMOTE_DEVICE_PAIRED",
   "REMOTE_SESSION_STOPPED",
+  "PHONE_CALL_QUEUED",
+  "PHONE_CALL_STARTED",
+  "PHONE_CALL_ANSWERED",
+  "PHONE_CALL_TRANSCRIPT",
+  "PHONE_CALL_COMPLETED",
+  "PHONE_CALL_FAILED",
 ] as const
 
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -50,6 +56,63 @@ export interface HealthResponse {
   service: string
   version?: string
   llm_mode?: "live" | "mock"
+  phone_mode?: "live" | "mock"
+}
+
+export interface PhoneContact {
+  id: string
+  name: string
+  phone_number: string
+  notes: string
+  created_at: string
+}
+
+export interface PhoneTurn {
+  speaker: "user" | "assistant"
+  text: string
+  timestamp: string
+}
+
+export interface PhoneQuestion {
+  id: string
+  question: string
+  required: boolean
+}
+
+export interface PhoneFinding {
+  question: string
+  answer: string
+}
+
+export interface PhoneCall {
+  id: string
+  contact_id: string | null
+  contact_name: string
+  phone_number: string
+  mission: string
+  questions: PhoneQuestion[]
+  status: "queued" | "ringing" | "active" | "completed" | "declined" | "incomplete" | "failed" | "cancelled"
+  provider_call_id: string | null
+  session_id: string | null
+  task_id: string | null
+  transcript: PhoneTurn[]
+  findings: Record<string, PhoneFinding>
+  summary: string | null
+  error: string | null
+  duration_seconds: number | null
+  created_at: string
+  started_at: string | null
+  answered_at: string | null
+  ended_at: string | null
+  updated_at: string
+  mock?: boolean
+}
+
+export interface PhoneStatus {
+  mode: "live" | "mock"
+  number_configured: boolean
+  public_url_configured: boolean
+  speech_to_text_configured: boolean
 }
 
 export interface ProviderInfoResponse {

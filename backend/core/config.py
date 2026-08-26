@@ -8,10 +8,12 @@ mock when its settings are absent.
 from __future__ import annotations
 
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import dotenv_values
 
 APP_VERSION = "0.1.0"
 
@@ -71,13 +73,64 @@ class Settings(BaseSettings):
     search_api_url: str = ""
     browser_headless: bool = False
 
+    # Outbound phone agent (Vobiz + Sarvam)
+    vobiz_auth_id: str = ""
+    vobiz_auth_token: str = ""
+    vobiz_did: str = ""
+    vobiz_base_url: str = "https://api.vobiz.ai/api/v1"
+    phone_public_url: str = ""
+    phone_webhook_secret: str = ""
+    sarvam_api_key: str = ""
+    sarvam_base_url: str = "https://api.sarvam.ai"
+    phone_language: str = "en-IN"
+    phone_contacts: str = ""  # JSON list: [{"name":"...","phone_number":"+91..."}]
+    phone_agent_env_file: str = ""  # optional Kimi phone-agent backend/.env migration source
+
+    def model_post_init(self, __context) -> None:
+        """Read only phone credentials from the legacy Kimi project when linked.
+
+        This avoids copying secrets into Griffin while the phone project is being
+        migrated. Explicit Griffin environment values always win.
+        """
+        if not self.phone_agent_env_file.strip():
+            return
+        source = Path(self.phone_agent_env_file).expanduser().resolve()
+        if not source.is_file():
+            return
+        values = dotenv_values(source)
+        mapping = {
+            "vobiz_auth_id": "VOBIZ_AUTH_ID",
+            "vobiz_auth_token": "VOBIZ_AUTH_TOKEN",
+            "vobiz_did": "VOBIZ_DID",
+            "phone_public_url": "NGROK_URL",
+            "sarvam_api_key": "SARVAM_API_KEY",
+        }
+        for field, key in mapping.items():
+            if not getattr(self, field) and values.get(key):
+                object.__setattr__(self, field, str(values[key]))
+
+        # The Kimi CLI kept its DID as the VOBIZ_DID fallback in call.py.
+        # Read it during migration rather than duplicating a personal number.
+        if not self.vobiz_did:
+            call_script = source.parent.parent / "scripts" / "call.py"
+            if call_script.is_file():
+                match = re.search(
+                    r'VOBIZ_DID\s*=\s*os\.getenv\("VOBIZ_DID",\s*"([^"\n]+)"\)',
+                    call_script.read_text(encoding="utf-8"),
+                )
+                if match:
+                    object.__setattr__(self, "vobiz_did", match.group(1))
+
     # Browser automation (Phase 1 — Griffin-controlled browser)
     browser_goto_timeout_ms: int = 15_000
     browser_profile_dir: str = "~/.griffin/browser-profile"
     browser_screenshot_dir: str = "~/.griffin/browser-screenshots"
 
     # Agent loop rails (Phase 1)
-    agent_max_steps: int = 4  # max LLM/tool iterations per run (prevents loops)
+    # A real browser task commonly needs navigate -> inspect -> interact ->
+    # verify, plus recovery for consent dialogs or stale page state.  Four
+    # turns was too small for those workflows, so keep a larger bounded loop.
+    agent_max_steps: int = 12  # max LLM/tool iterations per run (prevents loops)
     max_tool_retries: int = 2  # bounded retries for transient tool failures (timeouts)
     tool_timeout: float = 30.0  # seconds before a tool call is aborted
 
@@ -172,6 +225,32 @@ class Settings(BaseSettings):
     @property
     def news_site_list(self) -> list[str]:
         return [u.strip() for u in self.news_sites.split(",") if u.strip()]
+
+    @property
+    def phone_mode(self) -> str:
+        return "live" if all((self.vobiz_auth_id, self.vobiz_auth_token, self.vobiz_did)) else "mock"
+
+    @property
+    def phone_contact_seed(self) -> list[dict[str, str]]:
+        if not self.phone_contacts.strip():
+            return []
+        import json
+
+        try:
+            value = json.loads(self.phone_contacts)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(value, list):
+            return []
+        return [
+            {
+                "name": str(item.get("name", "")).strip(),
+                "phone_number": str(item.get("phone_number", "")).strip(),
+                "notes": str(item.get("notes", "")).strip(),
+            }
+            for item in value
+            if isinstance(item, dict) and item.get("name") and item.get("phone_number")
+        ]
 
 
 @lru_cache

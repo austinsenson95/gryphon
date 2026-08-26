@@ -8,6 +8,9 @@ import {
   ListTodo,
   MessageSquare,
   MonitorSmartphone,
+  PhoneOutgoing,
+  Radio,
+  Captions,
   Play,
   ShieldAlert,
   ShieldCheck,
@@ -55,6 +58,12 @@ const EVENT_ICONS: Record<EventType, LucideIcon> = {
   REMOTE_SESSION_STARTED: MonitorSmartphone,
   REMOTE_DEVICE_PAIRED: ShieldCheck,
   REMOTE_SESSION_STOPPED: XCircle,
+  PHONE_CALL_QUEUED: PhoneOutgoing,
+  PHONE_CALL_STARTED: PhoneOutgoing,
+  PHONE_CALL_ANSWERED: Radio,
+  PHONE_CALL_TRANSCRIPT: Captions,
+  PHONE_CALL_COMPLETED: CheckCircle2,
+  PHONE_CALL_FAILED: XCircle,
 }
 
 function iconTone(type: EventType): string {
@@ -62,13 +71,16 @@ function iconTone(type: EventType): string {
     case "TOOL_CALL_FAILED":
     case "TASK_FAILED":
     case "PERMISSION_DENIED":
+    case "PHONE_CALL_FAILED":
       return "text-red-400"
     case "USER_APPROVAL_REQUIRED":
     case "PERMISSION_REQUIRED":
+    case "PHONE_CALL_QUEUED":
       return "text-amber-400"
     case "TASK_COMPLETED":
     case "TOOL_CALL_COMPLETED":
     case "PERMISSION_GRANTED":
+    case "PHONE_CALL_COMPLETED":
       return "text-emerald-400"
     case "AGENT_THINKING":
     case "TOOL_CALL_STARTED":
@@ -76,6 +88,9 @@ function iconTone(type: EventType): string {
     case "BROWSER_PAGE_LOADED":
     case "REMOTE_SESSION_STARTED":
     case "REMOTE_DEVICE_PAIRED":
+    case "PHONE_CALL_STARTED":
+    case "PHONE_CALL_ANSWERED":
+    case "PHONE_CALL_TRANSCRIPT":
       return "text-cyan-300"
     default:
       return "text-slate-300"

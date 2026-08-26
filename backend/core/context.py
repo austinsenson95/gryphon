@@ -13,6 +13,12 @@ import contextvars
 _current_run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "griffin_run_id", default=None
 )
+_current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "griffin_session_id", default=None
+)
+_current_task_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "griffin_task_id", default=None
+)
 
 
 def set_run_id(run_id: str | None) -> None:
@@ -21,3 +27,19 @@ def set_run_id(run_id: str | None) -> None:
 
 def get_run_id() -> str | None:
     return _current_run_id.get()
+
+
+def set_session_id(session_id: str | None) -> None:
+    _current_session_id.set(session_id)
+
+
+def get_session_id() -> str | None:
+    return _current_session_id.get()
+
+
+def set_task_id(task_id: str | None) -> None:
+    _current_task_id.set(task_id)
+
+
+def get_task_id() -> str | None:
+    return _current_task_id.get()

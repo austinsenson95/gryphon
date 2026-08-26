@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend.api import browser, chat, events, health, llm, remote, tasks, voice, websocket
+from backend.api import browser, chat, events, health, llm, phone, remote, tasks, voice, websocket
 from backend.core.config import APP_VERSION, Settings, get_settings
 from backend.core.logging import get_logger, setup_logging
 from backend.core.state import AppState
@@ -29,6 +29,7 @@ from backend.llm.provider import get_llm_provider
 from backend.stt.local import get_stt_provider
 from backend.tools.registry import create_default_registry
 from backend.remote.service import RemoteControlService
+from backend.phone.service import PhoneService
 
 logger = get_logger("griffin.main")
 
@@ -62,8 +63,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ws_manager = WebSocketManager(history_provider=recent_events)
         bus = EventBus(db.session_factory, ws_manager)
 
-        # Registry is built with the bus so workflows stream progress events.
-        registry = create_default_registry(settings, bus=bus)
+        phone_service = PhoneService(settings, db.session_factory, bus)
+        await phone_service.seed_contacts()
+
+        # Registry is built with shared services so tools can stream progress events.
+        registry = create_default_registry(settings, bus=bus, phone_service=phone_service)
         provider = get_llm_provider(settings)
         stt = get_stt_provider(settings)
 
@@ -76,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ws_manager=ws_manager,
             stt=stt,
             remote=RemoteControlService(),
+            phone=phone_service,
         )
 
         # Startup verification for Ollama: report clearly instead of failing
@@ -152,6 +157,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(tasks.router)
     app.include_router(events.router)
     app.include_router(remote.router)
+    app.include_router(phone.router)
     app.include_router(websocket.router)
     return app
 

@@ -8,10 +8,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.memory.models import Event, Message, Notification, Session, Task, ToolCall
+from backend.memory.models import Contact, Event, Message, Notification, PhoneCall, Session, Task, ToolCall
 
 
 def _new_id(prefix: str) -> str:
@@ -191,3 +191,84 @@ async def add_notification(
 async def get_unread_notifications(session: AsyncSession) -> list[Notification]:
     stmt = select(Notification).where(Notification.read.is_(False)).order_by(Notification.created_at)
     return list((await session.scalars(stmt)).all())
+
+
+# ---------------------------------------------------------------- contacts
+
+
+async def create_contact(
+    session: AsyncSession, name: str, phone_number: str, notes: str = ""
+) -> Contact:
+    row = Contact(id=_new_id("con"), name=name.strip(), phone_number=phone_number.strip(), notes=notes.strip())
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def list_contacts(session: AsyncSession) -> list[Contact]:
+    stmt = select(Contact).order_by(func.lower(Contact.name), Contact.id)
+    return list((await session.scalars(stmt)).all())
+
+
+async def get_contact(session: AsyncSession, contact_id: str) -> Contact | None:
+    return await session.get(Contact, contact_id)
+
+
+async def find_contact_by_name(session: AsyncSession, name: str) -> Contact | None:
+    stmt = select(Contact).where(func.lower(Contact.name) == name.strip().lower()).limit(1)
+    return (await session.scalars(stmt)).first()
+
+
+async def find_contact_by_phone(session: AsyncSession, phone_number: str) -> Contact | None:
+    stmt = select(Contact).where(Contact.phone_number == phone_number.strip()).limit(1)
+    return (await session.scalars(stmt)).first()
+
+
+# ---------------------------------------------------------------- phone calls
+
+
+async def create_phone_call(
+    session: AsyncSession,
+    *,
+    contact_id: str | None,
+    contact_name: str,
+    phone_number: str,
+    mission: str,
+    questions: list[dict],
+    session_id: str | None = None,
+    task_id: str | None = None,
+) -> PhoneCall:
+    row = PhoneCall(
+        id=_new_id("pcall"),
+        contact_id=contact_id,
+        contact_name=contact_name,
+        phone_number=phone_number,
+        mission=mission,
+        questions=questions,
+        session_id=session_id,
+        task_id=task_id,
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def get_phone_call(session: AsyncSession, call_id: str) -> PhoneCall | None:
+    return await session.get(PhoneCall, call_id)
+
+
+async def list_phone_calls(session: AsyncSession, limit: int = 50) -> list[PhoneCall]:
+    stmt = select(PhoneCall).order_by(desc(PhoneCall.created_at), desc(PhoneCall.id)).limit(limit)
+    return list((await session.scalars(stmt)).all())
+
+
+async def update_phone_call(session: AsyncSession, call_id: str, **values) -> PhoneCall | None:
+    row = await session.get(PhoneCall, call_id)
+    if row is None:
+        return None
+    for key, value in values.items():
+        if hasattr(row, key):
+            setattr(row, key, value)
+    row.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return row

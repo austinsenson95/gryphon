@@ -79,6 +79,11 @@ vi.stubGlobal(
       })
     }
     if (url.includes("/api/events")) return jsonResponse([])
+    if (url.includes("/api/phone/status")) {
+      return jsonResponse({ mode: "mock", number_configured: false, public_url_configured: false, speech_to_text_configured: false })
+    }
+    if (url.includes("/api/phone/contacts")) return jsonResponse([])
+    if (url.includes("/api/phone/calls")) return jsonResponse([])
     return jsonResponse({ error: { code: "not_found", message: "not found" } }, 404)
   }),
 )

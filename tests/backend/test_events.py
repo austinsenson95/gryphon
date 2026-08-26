@@ -43,6 +43,8 @@ def test_all_spec_event_types_defined():
         # Phase 1 additions
         "PERMISSION_REQUIRED", "PERMISSION_GRANTED", "PERMISSION_DENIED",
         "BROWSER_NAVIGATION", "BROWSER_PAGE_LOADED",
+        "PHONE_CALL_QUEUED", "PHONE_CALL_STARTED", "PHONE_CALL_ANSWERED",
+        "PHONE_CALL_TRANSCRIPT", "PHONE_CALL_COMPLETED", "PHONE_CALL_FAILED",
     }
     assert set(EventType.ALL) == expected
 

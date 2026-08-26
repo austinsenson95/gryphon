@@ -10,6 +10,9 @@ import type {
   RemotePairResponse,
   RemoteStatus,
   RemoteApplication,
+  PhoneCall,
+  PhoneContact,
+  PhoneStatus,
 } from "@/lib/types"
 import { isTauriRuntime } from "@/lib/desktop"
 
@@ -59,6 +62,30 @@ export function sendChat(
 
 export function getEvents(limit = 50): Promise<GriffinEvent[]> {
   return request<GriffinEvent[]>(`/api/events?limit=${limit}`)
+}
+
+export function getPhoneStatus(): Promise<PhoneStatus> {
+  return request<PhoneStatus>("/api/phone/status")
+}
+
+export function getPhoneContacts(): Promise<PhoneContact[]> {
+  return request<PhoneContact[]>("/api/phone/contacts")
+}
+
+export function addPhoneContact(input: { name: string; phone_number: string; notes?: string }): Promise<PhoneContact> {
+  return request<PhoneContact>("/api/phone/contacts", { method: "POST", body: JSON.stringify(input) })
+}
+
+export function getPhoneCalls(limit = 50): Promise<PhoneCall[]> {
+  return request<PhoneCall[]>(`/api/phone/calls?limit=${limit}`)
+}
+
+export function startPhoneCall(input: { contact_name: string; mission: string; questions: string[]; session_id?: string | null }): Promise<PhoneCall> {
+  return request<PhoneCall>("/api/phone/calls", { method: "POST", body: JSON.stringify(input) })
+}
+
+export function cancelPhoneCall(callId: string): Promise<PhoneCall> {
+  return request<PhoneCall>(`/api/phone/calls/${encodeURIComponent(callId)}/cancel`, { method: "POST" })
 }
 
 export function getProviderInfo(): Promise<ProviderInfoResponse> {

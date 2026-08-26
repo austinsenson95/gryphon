@@ -19,6 +19,7 @@ async def health(request: Request) -> dict:
         "service": "griffin",
         "version": APP_VERSION,
         "llm_mode": state.llm_mode,
+        "phone_mode": state.settings.phone_mode,
     }
 
 

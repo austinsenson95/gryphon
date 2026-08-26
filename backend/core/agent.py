@@ -40,7 +40,7 @@ from backend.tools.registry import ToolRegistry
 
 logger = get_logger("griffin.agent")
 
-MAX_TOOL_ITERATIONS = 4  # fallback when settings.agent_max_steps is unset
+MAX_TOOL_ITERATIONS = 12  # fallback when settings.agent_max_steps is unset
 
 
 class AgentResult(BaseModel):
@@ -78,6 +78,8 @@ class Agent:
             return await self._run(session_id, user_message, run_id)
         finally:
             run_context.set_run_id(None)
+            run_context.set_session_id(None)
+            run_context.set_task_id(None)
 
     async def _run(self, session_id: str, user_message: str, run_id: str) -> AgentResult:
         # 1. persist the user message, then lifecycle events.
@@ -90,6 +92,8 @@ class Agent:
             {"message_id": user_msg.id, "role": "user", "content": user_message},
         )
         task = await self._tasks.create(session_id, user_message)
+        run_context.set_session_id(session_id)
+        run_context.set_task_id(task.id)
         await self._publish(
             EventType.TASK_STARTED,
             session_id,

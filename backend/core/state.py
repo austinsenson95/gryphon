@@ -17,6 +17,7 @@ from backend.llm.provider import create_provider
 from backend.stt.base import SpeechToTextProvider
 from backend.tools.registry import ToolRegistry
 from backend.remote.service import RemoteControlService
+from backend.phone.service import PhoneService
 
 
 @dataclass
@@ -29,6 +30,7 @@ class AppState:
     ws_manager: WebSocketManager
     stt: SpeechToTextProvider
     remote: RemoteControlService
+    phone: PhoneService
 
     @property
     def llm_mode(self) -> str:
