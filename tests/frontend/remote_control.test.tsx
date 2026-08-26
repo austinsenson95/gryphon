@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { RemoteCockpit } from "@/remote/RemoteCockpit"
 import {
   getRemoteStatus,
+  getRemoteApplications,
   getRemoteVolume,
   launchRemoteApplication,
   sendRemoteCommand,
@@ -15,6 +16,7 @@ import type { RemoteStatus } from "@/lib/types"
 
 vi.mock("@/lib/api", () => ({
   getRemoteStatus: vi.fn(),
+  getRemoteApplications: vi.fn(),
   getRemoteFrame: vi.fn().mockResolvedValue(new Blob(["frame"], { type: "image/jpeg" })),
   getRemoteVolume: vi.fn(),
   launchRemoteApplication: vi.fn(),
@@ -42,6 +44,13 @@ describe("Phone remote controls", () => {
     sessionStorage.removeItem("griffin.remote.chat.session")
     vi.mocked(getRemoteStatus).mockResolvedValue(pairedStatus)
     vi.mocked(getRemoteVolume).mockResolvedValue({ volume: 42 })
+    vi.mocked(getRemoteApplications).mockResolvedValue({ applications: [
+      { id: "hermes", name: "Hermes" },
+      { id: "Spotify", name: "Spotify" },
+      { id: "Notes", name: "Notes" },
+      { id: "Visual Studio Code", name: "VS Code" },
+      { id: "Terminal", name: "Terminal" },
+    ] })
     vi.mocked(sendRemoteInput).mockResolvedValue({ accepted: true })
     vi.mocked(sendRemoteCommand).mockResolvedValue({
       run_id: "run-phone",
@@ -276,20 +285,23 @@ describe("Phone remote controls", () => {
     ))
   })
 
-  it("sends phone text and confirms delivery before clearing the field", async () => {
+  it("streams typing and deletion to the Mac immediately", async () => {
     const user = userEvent.setup()
     render(<RemoteCockpit />)
 
-    const input = await screen.findByPlaceholderText("Type into the selected Mac field…")
-    await user.type(input, "Hello from iPhone")
-    await user.click(screen.getByRole("button", { name: "Send" }))
+    const input = await screen.findByPlaceholderText("Live typing into the Mac…")
+    await user.type(input, "Hi")
 
     await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
       "paired-token",
-      { type: "text", text: "Hello from iPhone" },
+      { type: "text", text: "i" },
     ))
-    expect(await screen.findByRole("status")).toHaveTextContent("Text sent to Mac")
-    expect(input).toHaveValue("")
+    await user.click(screen.getByRole("button", { name: "Delete last character" }))
+    await waitFor(() => expect(sendRemoteInput).toHaveBeenCalledWith(
+      "paired-token",
+      { type: "key", key: "backspace" },
+    ))
+    expect(input).toHaveValue("H")
   })
 
   it("sends an authenticated text command to Griffin and shows the result", async () => {
@@ -370,16 +382,15 @@ describe("Phone remote controls", () => {
     Object.defineProperty(window, "isSecureContext", { configurable: true, value: true })
   })
 
-  it("keeps unsent phone text visible when Mac input fails", async () => {
+  it("keeps live phone text visible when Mac input fails", async () => {
     const user = userEvent.setup()
     vi.mocked(sendRemoteInput).mockRejectedValueOnce(new Error("Accessibility permission is missing"))
     render(<RemoteCockpit />)
 
-    const input = await screen.findByPlaceholderText("Type into the selected Mac field…")
-    await user.type(input, "Do not lose this")
-    await user.click(screen.getByRole("button", { name: "Send" }))
+    const input = await screen.findByPlaceholderText("Live typing into the Mac…")
+    await user.type(input, "D")
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Accessibility permission is missing")
-    expect(input).toHaveValue("Do not lose this")
+    expect(input).toHaveValue("D")
   })
 })

@@ -163,6 +163,31 @@ class MacRemoteAdapter:
             raise RuntimeError(stderr.decode(errors="replace").strip() or "Could not open Accessibility settings.")
         return self.permission_target()
 
+    def installed_applications(self) -> list[str]:
+        """Return launchable apps from the standard macOS application folders."""
+        if not self.supported:
+            return []
+        roots = (
+            Path("/Applications"),
+            Path("/Applications/Utilities"),
+            Path("/System/Applications"),
+            Path("/System/Applications/Utilities"),
+            Path.home() / "Applications",
+        )
+        names: dict[str, str] = {}
+        for root in roots:
+            if not root.is_dir():
+                continue
+            try:
+                applications = root.glob("*.app")
+                for application in applications:
+                    name = application.stem.strip()
+                    if name:
+                        names.setdefault(name.casefold(), name)
+            except OSError:
+                continue
+        return sorted(names.values(), key=str.casefold)
+
     def display_bounds(self) -> tuple[float, float, float, float]:
         self._load_frameworks()
         display = self._cg.CGMainDisplayID()

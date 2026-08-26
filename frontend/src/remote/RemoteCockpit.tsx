@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   Command,
-  Code2,
   Keyboard,
   Laptop,
   Link2,
@@ -20,8 +19,6 @@ import {
   MousePointer2,
   MousePointerClick,
   MonitorUp,
-  Music2,
-  NotebookPen,
   Power,
   RefreshCw,
   RotateCcw,
@@ -29,7 +26,6 @@ import {
   SendHorizontal,
   Settings2,
   ShieldCheck,
-  Sparkles,
   SquareTerminal,
   VolumeX,
 } from "lucide-react"
@@ -48,6 +44,7 @@ import {
 } from "@/components/griffin/hardware"
 import {
   getRemoteFrame,
+  getRemoteApplications,
   getRemoteStatus,
   getRemoteVolume,
   launchRemoteApplication,
@@ -58,26 +55,13 @@ import {
   sendRemoteVoice,
   stopRemoteSession,
 } from "@/lib/api"
-import type { RemoteApplication, RemoteInput, RemoteStatus } from "@/lib/types"
+import type { RemoteApplication, RemoteApplicationOption, RemoteInput, RemoteStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const TOKEN_KEY = "griffin.remote.token"
 const CHAT_SESSION_KEY = "griffin.remote.chat.session"
 const MAX_VOICE_RECORDING_MS = 30_000
 type PhoneVoiceState = "idle" | "listening" | "transcribing"
-
-const REMOTE_APPS: Array<{
-  id: RemoteApplication
-  label: string
-  icon: typeof Sparkles
-  tone: string
-}> = [
-  { id: "hermes", label: "Hermes", icon: Sparkles, tone: "text-violet-200 bg-violet-400/10 border-violet-300/20" },
-  { id: "spotify", label: "Spotify", icon: Music2, tone: "text-emerald-200 bg-emerald-400/10 border-emerald-300/20" },
-  { id: "notes", label: "Notes", icon: NotebookPen, tone: "text-amber-100 bg-amber-300/10 border-amber-200/20" },
-  { id: "vscode", label: "VS Code", icon: Code2, tone: "text-cyan-200 bg-cyan-400/10 border-cyan-300/20" },
-  { id: "terminal", label: "Terminal", icon: SquareTerminal, tone: "text-slate-200 bg-slate-400/10 border-slate-300/20" },
-]
 
 function PermissionPill({ ok, children }: { ok: boolean; children: string }) {
   return (
@@ -153,8 +137,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
   const [frameError, setFrameError] = useState("")
   const [controlError, setControlError] = useState("")
   const [text, setText] = useState("")
-  const [sendingText, setSendingText] = useState(false)
-  const [textDelivered, setTextDelivered] = useState(false)
+  const [keyboardLive, setKeyboardLive] = useState(true)
   const [command, setCommand] = useState("")
   const [commandBusy, setCommandBusy] = useState(false)
   const [commandError, setCommandError] = useState("")
@@ -172,6 +155,8 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
   const [selectingWindow, setSelectingWindow] = useState(false)
   const [frameSize, setFrameSize] = useState({ width: 16, height: 9 })
   const [launchingApp, setLaunchingApp] = useState<RemoteApplication | null>(null)
+  const [applications, setApplications] = useState<RemoteApplicationOption[]>([])
+  const [appQuery, setAppQuery] = useState("")
   const [immersive, setImmersive] = useState(false)
   const remoteRef = useRef<HTMLElement>(null)
   const gesture = useRef<{
@@ -202,6 +187,7 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
   const voiceRecorder = useRef<MediaRecorder | null>(null)
   const voiceStream = useRef<MediaStream | null>(null)
   const voiceChunks = useRef<Blob[]>([])
+  const keyboardQueue = useRef<Promise<void>>(Promise.resolve())
 
   const send = useCallback(async (input: RemoteInput) => {
     try {
@@ -237,18 +223,35 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
     feedbackTimer.current = window.setTimeout(() => setSurfaceFeedback(null), 520)
   }
 
-  const submitText = async () => {
-    if (!text || sendingText) return
-    const payload = text
-    setSendingText(true)
-    setTextDelivered(false)
-    const delivered = await send({ type: "text", text: payload })
-    if (delivered) {
-      setText("")
-      setTextDelivered(true)
-      window.setTimeout(() => setTextDelivered(false), 1400)
-    }
-    setSendingText(false)
+  const queueKeyboardInputs = (inputs: RemoteInput[]) => {
+    keyboardQueue.current = keyboardQueue.current.then(async () => {
+      setKeyboardLive(false)
+      for (const input of inputs) await send(input)
+      setKeyboardLive(true)
+    })
+  }
+
+  const streamTextChange = (nextText: string) => {
+    const previous = Array.from(text)
+    const next = Array.from(nextText)
+    let prefix = 0
+    while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix += 1
+    let suffix = 0
+    while (
+      suffix < previous.length - prefix &&
+      suffix < next.length - prefix &&
+      previous[previous.length - 1 - suffix] === next[next.length - 1 - suffix]
+    ) suffix += 1
+
+    const inputs: RemoteInput[] = []
+    for (let index = 0; index < suffix; index += 1) inputs.push({ type: "key", key: "left" })
+    for (let index = prefix; index < previous.length - suffix; index += 1) inputs.push({ type: "key", key: "backspace" })
+    const inserted = next.slice(prefix, next.length - suffix).join("")
+    if (inserted) inputs.push({ type: "text", text: inserted })
+    for (let index = 0; index < suffix; index += 1) inputs.push({ type: "key", key: "right" })
+
+    setText(nextText)
+    if (inputs.length) queueKeyboardInputs(inputs)
   }
 
   const submitCommand = async () => {
@@ -401,6 +404,14 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
         if (!cancelled) { setVolume(currentVolume); setVolumeReady(true); setVolumeError("") }
       })
       .catch(() => { if (!cancelled) setVolumeError("Mac volume is unavailable.") })
+    return () => { cancelled = true }
+  }, [token])
+
+  useEffect(() => {
+    let cancelled = false
+    getRemoteApplications(token)
+      .then(({ applications: installed }) => { if (!cancelled) setApplications(installed) })
+      .catch((reason) => { if (!cancelled) setControlError(reason instanceof Error ? reason.message : "Could not load Mac applications.") })
     return () => { cancelled = true }
   }, [token])
 
@@ -818,12 +829,13 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
           </ControlGroup>
 
           <WoodPanel className="griffin-launcher">
-            <div className="hw-control-heading"><EngravedLabel>OPEN ON YOUR MAC</EngravedLabel><span className="hw-launcher-mark">5 CHANNEL</span></div>
+            <div className="hw-control-heading"><EngravedLabel>OPEN ON YOUR MAC</EngravedLabel><span className="hw-launcher-mark">{applications.length} APPS</span></div>
+            <Input aria-label="Find a Mac application" value={appQuery} onChange={(event) => setAppQuery(event.target.value)} placeholder="Find an application…" className="mb-2 griffin-hardware-input" />
             <div className="griffin-app-grid">
-              {REMOTE_APPS.map(({ id, label, icon: Icon, tone }) => (
-                <button key={id} disabled={launchingApp !== null} onClick={() => void launchApp(id)} aria-label={`Open ${label}`} className={cn("griffin-app-key", `griffin-app-key--${id}`, tone)}>
-                  <span>{launchingApp === id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}</span>
-                  <strong>{label}</strong>
+              {applications.filter(({ name }) => name.toLowerCase().includes(appQuery.trim().toLowerCase())).slice(0, 12).map(({ id, name }) => (
+                <button key={id} disabled={launchingApp !== null} onClick={() => void launchApp(id)} aria-label={`Open ${name}`} className="griffin-app-key text-slate-200 bg-slate-400/10 border-slate-300/20">
+                  <span>{launchingApp === id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <SquareTerminal className="h-4 w-4" />}</span>
+                  <strong>{name}</strong>
                 </button>
               ))}
             </div>
@@ -838,19 +850,19 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
                 enterKeyHint="send"
                 autoCapitalize="sentences"
                 spellCheck
-                onChange={(event) => { setText(event.target.value); setTextDelivered(false) }}
+                onChange={(event) => streamTextChange(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" && text) {
+                  if (event.key === "Enter") {
                     event.preventDefault()
-                    void submitText()
+                    queueKeyboardInputs([{ type: "key", key: "enter" }])
                   }
                 }}
-                placeholder="Type into the selected Mac field…"
+                placeholder="Live typing into the Mac…"
                 className="griffin-hardware-input"
               />
-              <PhysicalButton tone="metal" aria-label="Send" disabled={!text || sendingText} onClick={() => void submitText()}>{sendingText ? "Sending" : "Send to Mac"}</PhysicalButton>
+              <PhysicalButton tone="metal" aria-label="Delete last character" disabled={!text} onClick={() => streamTextChange(Array.from(text).slice(0, -1).join(""))}>Delete</PhysicalButton>
             </div>
-            {textDelivered && <p role="status" className="griffin-module-note is-success">Text sent to Mac</p>}
+            <p aria-live="polite" className={cn("griffin-module-note", keyboardLive && "is-success")}>{keyboardLive ? "Keyboard live — every edit is sent immediately" : "Sending keystroke…"}</p>
             {controlsOpen && <RecessedPanel className="griffin-key-cluster">
               <Button variant="outline" size="sm" onClick={() => void send({ type: "key", key: "escape" })}>esc</Button>
               <Button variant="outline" size="icon" aria-label="Command Enter" onClick={() => void send({ type: "key", key: "enter", modifiers: ["command"] })}><Command className="h-4 w-4" /></Button>

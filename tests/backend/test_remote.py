@@ -31,6 +31,9 @@ class FakeAdapter:
         self.opened_apps.append(names)
         return names[0]
 
+    def installed_applications(self):
+        return ["Notes", "Spotify", "Terminal", "Visual Studio Code"]
+
     async def open_hermes_agent(self):
         self.opened_apps.append(("hermes-cli",))
         return "Hermes Agent"
@@ -311,7 +314,7 @@ async def test_remote_pair_input_frame_and_stop(client, app, monkeypatch):
     assert adapter.opened_apps[-1] == ("hermes-cli",)
 
     invalid_app = await client.post("/api/remote/app", headers=headers, json={"app": "calculator"})
-    assert invalid_app.status_code == 422
+    assert invalid_app.status_code == 400
 
     stopped = await client.delete("/api/remote/session", headers=headers)
     assert stopped.json() == {"stopped": True}

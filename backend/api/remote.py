@@ -36,7 +36,7 @@ class InputRequest(BaseModel):
 
 
 class AppRequest(BaseModel):
-    app: Literal["hermes", "spotify", "notes", "vscode", "terminal"]
+    app: str = Field(min_length=1, max_length=160)
 
 
 REMOTE_APPLICATIONS: dict[str, tuple[str, ...]] = {
@@ -46,6 +46,14 @@ REMOTE_APPLICATIONS: dict[str, tuple[str, ...]] = {
     "vscode": ("Visual Studio Code",),
     "terminal": ("Terminal",),
 }
+
+
+def _available_applications(state: AppState) -> list[dict[str, str]]:
+    applications = state.remote.adapter.installed_applications()
+    results = [{"id": name, "name": name} for name in applications]
+    if not any(item["name"].casefold() in {"hermes", "hermes agent"} for item in results):
+        results.insert(0, {"id": "hermes", "name": "Hermes"})
+    return results
 
 
 def _bearer(authorization: str | None) -> str | None:
@@ -162,6 +170,18 @@ async def remote_volume(
     return {"volume": volume}
 
 
+@router.get("/apps")
+async def remote_applications(
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> dict:
+    try:
+        state.remote.authenticate(_bearer(authorization))
+    except PermissionError as exc:
+        raise HTTPException(401, detail={"code": "REMOTE_UNAUTHORIZED", "message": str(exc)}) from exc
+    return {"applications": _available_applications(state)}
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def remote_chat(
     body: ChatRequest,
@@ -216,12 +236,20 @@ async def remote_application(
 ) -> dict:
     try:
         state.remote.authenticate(_bearer(authorization))
-        if body.app == "hermes":
+        requested = body.app.strip()
+        if requested.casefold() == "hermes":
             opened_name = await state.remote.adapter.open_hermes_agent()
         else:
-            opened_name = await state.remote.adapter.open_application(REMOTE_APPLICATIONS[body.app])
+            aliases = REMOTE_APPLICATIONS.get(requested.casefold())
+            installed = {
+                name.casefold(): name for name in state.remote.adapter.installed_applications()
+            }
+            canonical = installed.get(requested.casefold())
+            if aliases is None and canonical is None:
+                raise ValueError("That application is not installed in a standard macOS Applications folder.")
+            opened_name = await state.remote.adapter.open_application(aliases or (canonical,))
     except PermissionError as exc:
         raise HTTPException(401, detail={"code": "REMOTE_UNAUTHORIZED", "message": str(exc)}) from exc
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
         raise HTTPException(400, detail={"code": "APP_LAUNCH_FAILED", "message": str(exc)}) from exc
     return {"opened": True, "app": body.app, "application": opened_name}

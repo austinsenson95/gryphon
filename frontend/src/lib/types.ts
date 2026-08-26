@@ -179,7 +179,12 @@ export type RemoteInput =
   | { type: "volume"; volume: number }
   | { type: "enter_fullscreen" | "exit_fullscreen" }
 
-export type RemoteApplication = "hermes" | "spotify" | "notes" | "vscode" | "terminal"
+export type RemoteApplication = string
+
+export interface RemoteApplicationOption {
+  id: string
+  name: string
+}
 
 export interface ChatMessage {
   id: string

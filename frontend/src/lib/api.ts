@@ -10,6 +10,7 @@ import type {
   RemotePairResponse,
   RemoteStatus,
   RemoteApplication,
+  RemoteApplicationOption,
   PhoneCall,
   PhoneContact,
   PhoneStatus,
@@ -196,6 +197,14 @@ export function launchRemoteApplication(
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ app }),
+  })
+}
+
+export function getRemoteApplications(
+  token: string,
+): Promise<{ applications: RemoteApplicationOption[] }> {
+  return request<{ applications: RemoteApplicationOption[] }>("/api/remote/apps", {
+    headers: { Authorization: `Bearer ${token}` },
   })
 }
 
