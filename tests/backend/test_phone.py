@@ -13,6 +13,8 @@ async def test_contact_and_mock_call_job(client):
     )
     assert created.status_code == 201
     assert created.json()["name"] == "Rahul"
+    assert created.json()["call_authorized"] is True
+    assert created.json()["authorization_source"] == "saved_contact"
 
     response = await client.post(
         "/api/phone/calls",
@@ -30,6 +32,24 @@ async def test_contact_and_mock_call_job(client):
 
     calls = (await client.get("/api/phone/calls")).json()
     assert calls[0]["id"] == call["id"]
+
+
+async def test_saving_indian_mobile_adds_it_to_call_allowlist(client):
+    created = await client.post(
+        "/api/phone/contacts",
+        json={"name": "Anita", "phone_number": "98765 43210"},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["phone_number"] == "+919876543210"
+    assert created.json()["call_authorized"] is True
+
+    unsaved = await client.post(
+        "/api/phone/calls",
+        json={"contact_name": "Not saved", "mission": "ask a question"},
+    )
+    assert unsaved.status_code == 400
+    assert "not found" in unsaved.json()["error"]["message"]
 
 
 async def test_webhook_conversation_collects_findings(client, app):
@@ -55,6 +75,7 @@ async def test_webhook_conversation_collects_findings(client, app):
     )
     assert answered.status_code == 200
     assert "AI assistant" in answered.text
+    assert '<Speak language="en-IN" voice="Polly.Aditi">' in answered.text
     assert "<Record" in answered.text
 
     consent = await client.post(
@@ -95,3 +116,36 @@ async def test_phone_tool_is_registered_with_confirmation(app):
     assert tool is not None
     assert tool.permission == "confirm"
     assert app.state.griffin.registry.get("phone.get_call_status").permission == "safe"
+
+
+async def test_provider_rejection_is_reported_clearly(client, app, monkeypatch):
+    async def reject(**_kwargs):
+        raise RuntimeError("Vobiz rejected the call (402): Insufficient balance")
+
+    monkeypatch.setattr(app.state.griffin.phone, "start_call", reject)
+    response = await client.post(
+        "/api/phone/calls",
+        json={"contact_name": "Austin", "mission": "run a smoke test"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "PHONE_PROVIDER_REJECTED"
+    assert "Insufficient balance" in response.json()["error"]["message"]
+
+
+async def test_record_url_live_vobiz_field_is_forwarded(client, app, monkeypatch):
+    observed = {}
+
+    async def capture(call_id, user_text, recording_url):
+        observed.update(call_id=call_id, user_text=user_text, recording_url=recording_url)
+        return "<Response/>"
+
+    monkeypatch.setattr(app.state.griffin.phone, "verify_webhook", lambda _token: True)
+    monkeypatch.setattr(app.state.griffin.phone, "recording", capture)
+    response = await client.post(
+        "/api/phone/webhooks/vobiz/recording?job_id=live-test",
+        data={"RecordUrl": "https://media.vobiz.ai/example.mp3"},
+    )
+
+    assert response.status_code == 200
+    assert observed["recording_url"] == "https://media.vobiz.ai/example.mp3"

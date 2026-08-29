@@ -65,6 +65,8 @@ export interface PhoneContact {
   name: string
   phone_number: string
   notes: string
+  call_authorized: boolean
+  authorization_source: "saved_contact"
   created_at: string
 }
 

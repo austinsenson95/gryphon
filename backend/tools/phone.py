@@ -29,7 +29,8 @@ def register(registry, service) -> None:
         Tool(
             name="phone.call_contact",
             description=(
-                "Call a saved contact by name on Griffin's Vobiz number to collect information for a mission. "
+                "Call an authorized saved contact by name on Griffin's Vobiz number to collect information for a mission. "
+                "Never accept or dial a raw phone number; only contacts saved in Griffin's local call allowlist are callable. "
                 "The call runs in the background and reports findings to the Calls dashboard."
             ),
             input_schema={

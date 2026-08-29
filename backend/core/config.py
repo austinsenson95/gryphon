@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     sarvam_api_key: str = ""
     sarvam_base_url: str = "https://api.sarvam.ai"
     phone_language: str = "en-IN"
+    phone_voice: str = "Polly.Aditi"
     phone_contacts: str = ""  # JSON list: [{"name":"...","phone_number":"+91..."}]
     phone_agent_env_file: str = ""  # optional Kimi phone-agent backend/.env migration source
 

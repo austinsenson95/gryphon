@@ -148,13 +148,26 @@ Griffin can call a saved contact, follow a mission-specific question list, trans
 
 The current local setup reuses credentials from the Kimi phone-agent project through `PHONE_AGENT_ENV_FILE`; secrets are read at runtime and are not copied into this repository. For a standalone setup, configure `VOBIZ_AUTH_ID`, `VOBIZ_AUTH_TOKEN`, `VOBIZ_DID`, and `SARVAM_API_KEY` directly in `config/.env`.
 
-Vobiz must be able to reach Griffin's webhook endpoints. During local development, start an HTTPS tunnel to Griffin's backend port:
+Vobiz must be able to reach Griffin's webhook endpoints. For local development,
+run these in two terminals, in this order:
 
 ```bash
-ngrok http 8000
+# Terminal 1
+./scripts/dev.sh
+
+# Terminal 2
+./scripts/phone-agent-https.sh
 ```
 
-Griffin auto-discovers a local ngrok tunnel. For another tunnel or a deployed backend, set `PHONE_PUBLIC_URL=https://your-public-host`. Then add contacts in **Calls**, or ask Griffin: “Call Maya and ask which day works for dinner.” Call and cancel tools require confirmation; status checks are read-only. No call is placed until a specific mission is submitted.
+The HTTPS launcher reads the exact backend selected by `dev.sh`, including when
+port 8000 is occupied and development moves to another port. This keeps call
+creation and Vobiz callbacks on the same database. Griffin auto-discovers the
+ngrok tunnel. For another tunnel or a deployed backend, set
+`PHONE_PUBLIC_URL=https://your-public-host`. Spoken prompts default to Indian
+English with `PHONE_LANGUAGE=en-IN` and `PHONE_VOICE=Polly.Aditi`. Then add
+contacts in **Calls**, or ask Griffin: “Call Maya and ask which day works for
+dinner.” Call and cancel tools require confirmation; status checks are
+read-only. No call is placed until a specific mission is submitted.
 
 ## 8. API endpoints
 

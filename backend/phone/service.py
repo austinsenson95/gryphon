@@ -31,6 +31,11 @@ def _now() -> datetime:
 
 def _e164(value: str) -> str:
     cleaned = re.sub(r"[^\d+]", "", value.strip())
+    # Griffin is currently configured for an Indian Vobiz DID. Accept the
+    # familiar 10-digit mobile format from the Contacts UI and persist its
+    # canonical E.164 equivalent in the call allowlist.
+    if re.fullmatch(r"[6-9]\d{9}", cleaned):
+        cleaned = f"+91{cleaned}"
     if not re.fullmatch(r"\+[1-9]\d{7,14}", cleaned):
         raise ValueError("Phone number must use E.164 format, for example +919876543210.")
     return cleaned
@@ -49,6 +54,8 @@ def serialize_contact(row) -> dict[str, Any]:
         "name": row.name,
         "phone_number": row.phone_number,
         "notes": row.notes,
+        "call_authorized": True,
+        "authorization_source": "saved_contact",
         "created_at": repository.iso(row.created_at),
     }
 
@@ -98,6 +105,8 @@ class PhoneService:
             raise ValueError("Contact name is required.")
         phone_number = _e164(phone_number)
         async with self.session_factory() as session:
+            if await repository.find_contact_by_name(session, name):
+                raise ValueError("A contact with this name already exists.")
             if await repository.find_contact_by_phone(session, phone_number):
                 raise ValueError("A contact with this phone number already exists.")
             row = await repository.create_contact(session, name, phone_number, notes)
@@ -190,23 +199,26 @@ class PhoneService:
         base = public_url.rstrip("/")
         answer_url = f"{base}/api/phone/webhooks/vobiz/answer?{urlencode(query)}"
         hangup_url = f"{base}/api/phone/webhooks/vobiz/hangup?{urlencode(query)}"
+        recording_url = f"{base}/api/phone/webhooks/vobiz/recording?{urlencode(query)}"
         payload = {
             "from": self.settings.vobiz_did,
             "to": row.phone_number,
             "answer_url": answer_url,
+            "recording_url": recording_url,
             "answer_method": "POST",
             "hangup_url": hangup_url,
             "hangup_method": "POST",
         }
-        headers = {
-            "X-Auth-ID": self.settings.vobiz_auth_id,
-            "X-Auth-Token": self.settings.vobiz_auth_token,
-            "Content-Type": "application/json",
-        }
         url = f"{self.settings.vobiz_base_url.rstrip('/')}/Account/{self.settings.vobiz_auth_id}/Call/"
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
+            response = await client.post(
+                url,
+                json=payload,
+                auth=(self.settings.vobiz_auth_id, self.settings.vobiz_auth_token),
+            )
+            if response.is_error:
+                detail = response.text.strip()[:500] or response.reason_phrase
+                raise RuntimeError(f"Vobiz rejected the call ({response.status_code}): {detail}")
             data = response.json()
         return data.get("request_uuid") or data.get("call_uuid") or data.get("call_sid") or data.get("CallUUID")
 
@@ -410,11 +422,12 @@ class PhoneService:
             pass
         return ""
 
-    @staticmethod
-    def _xml(text: str = "", record_url: str = "", hangup: bool = False) -> str:
+    def _xml(self, text: str = "", record_url: str = "", hangup: bool = False) -> str:
         parts = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"]
         if text:
-            parts.append(f"<Speak>{html.escape(text)}</Speak>")
+            language = html.escape(self.settings.phone_language, quote=True)
+            voice = html.escape(self.settings.phone_voice, quote=True)
+            parts.append(f'<Speak language="{language}" voice="{voice}">{html.escape(text)}</Speak>')
         if record_url and not hangup:
             parts.append(f'<Record action="{html.escape(record_url, quote=True)}" method="POST" maxLength="25" timeout="3" playBeep="false" />')
         if hangup:

@@ -793,9 +793,6 @@ body::before { display: none; }
 .remote-monitor-stand { position: absolute; z-index: 1; bottom: .05rem; left: 50%; width: 34%; height: 1.75rem; translate: -50% 0; perspective: 8rem; }
 .remote-monitor-stand::before { content: ""; position: absolute; top: -.15rem; left: 50%; width: 31%; height: 1.3rem; translate: -50% 0; border: 1px solid #88898a; background: linear-gradient(90deg, #a0a1a2, #eceeee 48%, #999a9b); box-shadow: inset 1px 0 rgba(255,255,255,.8), 2px 3px 5px rgba(30,31,31,.22); transform: rotateX(-7deg); }
 .remote-monitor-stand span { position: absolute; right: 0; bottom: 0; left: 0; height: .38rem; border: 1px solid #858687; border-radius: 50% 50% .12rem .12rem; background: linear-gradient(180deg, #e9eaea, #9b9c9d); box-shadow: inset 0 1px rgba(255,255,255,.9), 0 3px 4px rgba(37,38,38,.28); }
-.remote-click-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .46rem; padding: .38rem .18rem .28rem; }
-.remote-click-row .hw-physical-button { white-space: normal; }
-
 .remote-control-rail { gap: .55rem; }
 .griffin-agent-module { background: linear-gradient(145deg, #d4d4ce, #999994); }
 .griffin-agent-module .hw-status-led { color: #555650; }
@@ -870,14 +867,185 @@ body::before { display: none; }
 .remote-immersive.griffin-control-deck { border-radius: 0; padding: max(.5rem, env(safe-area-inset-top)) max(.5rem, env(safe-area-inset-right)) max(.5rem, env(safe-area-inset-bottom)) max(.5rem, env(safe-area-inset-left)); }
 .remote-immersive.griffin-control-deck::before, .remote-immersive.griffin-control-deck::after { display: none; }
 
+/* Midnight instrument glass — cool optical surfaces around preserved walnut controls. */
+.griffin-app[data-mode="phone"] {
+  --metal-light: #263442;
+  --metal-mid: #131c27;
+  --metal-dark: #080d14;
+  --panel-shadow: rgba(0, 0, 0, .72);
+  --panel-highlight: rgba(185, 232, 255, .18);
+  --wood-light: #71472f;
+  --wood-dark: #24120d;
+  --screen-black: #03070b;
+  --screen-glow: #a8efff;
+  --accent-cyan: #8ce8ff;
+  --accent-amber: #e6a85b;
+  --accent-green: #6ed69a;
+  --engraved-text: #a7b8c7;
+  color-scheme: dark;
+  color: #dce8f1;
+  background:
+    radial-gradient(circle at 50% -12%, rgba(81, 180, 224, .18), transparent 29rem),
+    radial-gradient(circle at 85% 45%, rgba(58, 91, 124, .12), transparent 36rem),
+    linear-gradient(145deg, #030509, #0a0f17 52%, #04070b);
+}
+
+.griffin-app[data-mode="phone"] .griffin-header { color: #c8d7e3; }
+.griffin-app[data-mode="phone"] .griffin-brand { color: #eaf6ff; }
+.griffin-app[data-mode="phone"] .griffin-brand__icon,
+.griffin-app[data-mode="phone"] .griffin-icon-button,
+.griffin-app[data-mode="phone"] .griffin-view-switch {
+  border-color: rgba(161, 221, 249, .18);
+  color: #d8e9f5;
+  background: linear-gradient(145deg, rgba(39, 53, 68, .78), rgba(10, 15, 23, .88));
+  box-shadow: inset 0 1px rgba(225, 247, 255, .14), 0 8px 22px rgba(0, 0, 0, .3);
+  backdrop-filter: blur(20px) saturate(135%);
+}
+
+.griffin-control-deck {
+  border-color: rgba(150, 205, 231, .24);
+  background:
+    linear-gradient(118deg, rgba(193, 235, 255, .11), transparent 21%, transparent 72%, rgba(115, 188, 222, .08)),
+    linear-gradient(145deg, rgba(24, 35, 48, .94), rgba(7, 12, 19, .98) 58%, rgba(16, 24, 34, .96));
+  box-shadow:
+    inset 1px 1px 0 rgba(222, 247, 255, .18),
+    inset -1px -1px 0 rgba(0, 0, 0, .6),
+    0 1px 0 #263848,
+    0 24px 60px rgba(0, 0, 0, .62),
+    0 0 40px rgba(64, 156, 198, .08);
+  backdrop-filter: blur(28px) saturate(125%);
+}
+
+.griffin-control-deck::before,
+.griffin-control-deck::after {
+  border-color: #160b08;
+  background:
+    repeating-linear-gradient(87deg, rgba(255, 226, 197, .035) 0 1px, transparent 1px 4px),
+    linear-gradient(90deg, #1a0b08, #6c422d 48%, #24100b);
+  box-shadow: inset 1px 0 rgba(255, 226, 202, .12), 0 7px 18px rgba(0, 0, 0, .58);
+}
+
+.griffin-deck-header { border-bottom-color: rgba(147, 207, 235, .15); }
+.griffin-deck-mark {
+  border-color: rgba(146, 218, 248, .3);
+  color: #bdefff;
+  background: linear-gradient(145deg, rgba(39, 63, 79, .92), #070c12);
+  box-shadow: inset 1px 1px rgba(222, 248, 255, .2), 0 0 18px rgba(93, 210, 255, .13), 2px 5px 12px rgba(0, 0, 0, .45);
+}
+.griffin-deck-brand p:first-child { color: #edf8ff; }
+.griffin-deck-brand p:last-child { color: #7892a5; }
+
+.griffin-status-strip {
+  border-color: rgba(141, 207, 236, .2);
+  color: #afbfcb;
+  background: linear-gradient(135deg, rgba(31, 47, 62, .76), rgba(9, 15, 23, .84));
+  box-shadow: inset 1px 1px rgba(217, 243, 255, .12), inset -1px -1px rgba(0, 0, 0, .45), 0 8px 22px rgba(0, 0, 0, .2);
+  backdrop-filter: blur(18px) saturate(135%);
+}
+.hw-status-led__lamp { border-color: rgba(0, 0, 0, .72); background: #26313a; box-shadow: inset 1px 1px 3px rgba(0, 0, 0, .8), 0 0 0 1px rgba(206, 238, 250, .08); }
+.hw-status-led__lamp.is-green { background: #6ed69a; box-shadow: inset 0 1px rgba(255,255,255,.6), 0 0 9px rgba(81, 218, 137, .65); }
+.hw-status-led__lamp.is-cyan { background: #8ce8ff; box-shadow: inset 0 1px rgba(255,255,255,.7), 0 0 10px rgba(77, 207, 255, .72); }
+.hw-status-led__lamp.is-amber { background: #e6a85b; box-shadow: inset 0 1px rgba(255,255,255,.55), 0 0 9px rgba(230, 151, 58, .58); }
+.hw-status-led__lamp.is-red { background: #f06e6e; box-shadow: inset 0 1px rgba(255,255,255,.5), 0 0 9px rgba(240, 76, 76, .6); }
+
+.hw-metal-panel {
+  border-color: rgba(151, 211, 239, .2);
+  background:
+    linear-gradient(125deg, rgba(188, 230, 250, .11), transparent 30%),
+    linear-gradient(145deg, rgba(28, 42, 56, .82), rgba(8, 14, 22, .9));
+  box-shadow: inset 1px 1px rgba(229, 248, 255, .13), inset -1px -1px rgba(0, 0, 0, .48), 0 10px 25px rgba(0, 0, 0, .34);
+  backdrop-filter: blur(22px) saturate(140%);
+}
+.hw-recessed-panel { border-color: rgba(136, 196, 224, .16); background: rgba(3, 8, 13, .72); box-shadow: inset 3px 3px 8px rgba(0, 0, 0, .75), inset -1px -1px rgba(198, 235, 250, .08); }
+.hw-wood-panel {
+  border-color: #160b08;
+  color: #f1dfd0;
+  background:
+    repeating-linear-gradient(96deg, rgba(255,255,255,.025) 0 1px, rgba(24,8,5,.1) 1px 4px),
+    linear-gradient(105deg, #2a120d, #74472f 28%, #3b1c14 57%, #68402b 79%, #24100c);
+  box-shadow: inset 1px 1px rgba(255, 226, 199, .15), inset -2px -2px 5px rgba(12, 4, 2, .7), 0 10px 25px rgba(0, 0, 0, .4);
+}
+.hw-engraved-label, .hw-readout, .hw-launcher-mark { color: #9fb4c4; text-shadow: 0 1px rgba(0,0,0,.8); }
+.hw-wood-panel .hw-engraved-label, .hw-wood-panel .hw-launcher-mark { color: #e0c3aa; text-shadow: 0 1px #120705; }
+
+.hw-instrument-display {
+  border-color: rgba(131, 212, 244, .24);
+  background: radial-gradient(circle at 42% 0, rgba(73, 196, 235, .11), transparent 48%), rgba(2, 7, 11, .9);
+  box-shadow: inset 0 5px 14px rgba(0,0,0,.88), inset 0 -1px rgba(154, 231, 255, .12), 0 1px rgba(222, 246, 255, .1), 0 0 24px rgba(66, 187, 228, .06);
+}
+.hw-physical-button {
+  border-color: #020507;
+  color: #e5f0f6;
+  background: linear-gradient(155deg, #273644, #101821 52%, #080d13);
+  box-shadow: inset 1px 1px rgba(220, 245, 255, .16), inset -1px -1px rgba(0,0,0,.7), 0 3px 0 #020507, 0 8px 15px rgba(0,0,0,.4);
+}
+.hw-physical-button--metal {
+  border-color: rgba(138, 195, 221, .26);
+  color: #d9ebf5;
+  background: linear-gradient(145deg, rgba(54, 74, 91, .95), rgba(15, 23, 32, .98));
+  box-shadow: inset 1px 1px rgba(230, 248, 255, .2), inset -1px -1px rgba(0,0,0,.55), 0 3px 0 #080d13, 0 8px 16px rgba(0,0,0,.38);
+}
+.hw-physical-button--amber { border-color: #5f3c15; color: #211407; background: linear-gradient(145deg, #f2c077, #b66f25); }
+.hw-physical-button:focus-visible, .griffin-app-key:focus-visible, .remote-screen-mode button:focus-visible { outline-color: #8ce8ff; }
+
+.remote-monitor-panel { border-color: rgba(164, 224, 250, .3); box-shadow: inset 1px 1px rgba(232, 249, 255, .16), 0 0 0 1px rgba(71, 181, 224, .06), 0 16px 34px rgba(0, 0, 0, .44); }
+.remote-monitor-labels > span:last-child { color: #7890a2; }
+.remote-screen-bezel {
+  border-color: rgba(169, 219, 241, .28);
+  background: linear-gradient(122deg, #344657 0%, #111a24 35%, #263746 64%, #080e15 100%);
+  box-shadow: inset 1px 1px rgba(229, 248, 255, .22), inset -1px -1px rgba(0,0,0,.72), 0 0 0 1px rgba(88, 205, 250, .08), 0 12px 25px rgba(0,0,0,.58);
+}
+.remote-screen-bezel::before { background: linear-gradient(118deg, rgba(214, 244, 255, .2), transparent 19%, transparent 70%, rgba(93, 202, 242, .08)); }
+.remote-stage { border-color: #010305; box-shadow: inset 0 4px 14px rgba(0,0,0,.95), 0 0 0 1px rgba(135, 222, 255, .16), 0 0 26px rgba(64, 192, 239, .12); }
+.remote-monitor-chin { color: #7c91a1; text-shadow: 0 1px rgba(0,0,0,.8); }
+.remote-monitor-chin::before { border-top-color: rgba(183, 226, 244, .12); background: linear-gradient(180deg, rgba(152, 210, 234, .08), rgba(2, 6, 10, .18)); }
+.remote-monitor-stand::before { border-color: #1d2a35; background: linear-gradient(90deg, #101923, #465b6b 48%, #0b1118); box-shadow: inset 1px 0 rgba(213, 241, 252, .18), 2px 4px 8px rgba(0,0,0,.55); }
+.remote-monitor-stand span { border-color: #17222c; background: linear-gradient(180deg, #4b6070, #101820); box-shadow: inset 0 1px rgba(225, 246, 255, .2), 0 5px 9px rgba(0,0,0,.58); }
+.remote-screen-mode { border-color: rgba(142, 222, 250, .18); background: rgba(2, 8, 13, .86); box-shadow: inset 0 1px rgba(214, 246, 255, .08), 0 7px 18px rgba(0,0,0,.55); backdrop-filter: blur(16px); }
+.remote-screen-mode button { color: #8ea5b4; }
+.remote-screen-mode button.is-active { color: #031017; background: linear-gradient(145deg, #baf3ff, #63cce9); box-shadow: inset 0 1px rgba(255,255,255,.72), 0 0 12px rgba(87, 210, 247, .35); }
+
+.griffin-agent-module { background: linear-gradient(145deg, rgba(31, 47, 62, .88), rgba(7, 13, 20, .94)); }
+.griffin-agent-module .hw-status-led, .griffin-volume-control { color: #a8bbc9; }
+.griffin-terminal-expand { border-color: rgba(141, 204, 232, .22); color: #bfd1dc; background: linear-gradient(#2b3d4c, #101821); box-shadow: inset 1px 1px rgba(221, 245, 255, .15), 0 2px 0 #080d13; }
+.griffin-terminal-input, .griffin-hardware-input { border-color: rgba(125, 196, 225, .24); color: #d8f4fb; background: rgba(3, 9, 14, .86); box-shadow: inset 2px 3px 8px rgba(0,0,0,.82), 0 1px rgba(210, 241, 253, .08); }
+.griffin-terminal-input::placeholder, .griffin-hardware-input::placeholder { color: #6e8493; }
+.griffin-terminal-input:focus-visible, .griffin-hardware-input:focus-visible { border-color: #72d7f3; outline-color: rgba(86, 204, 238, .38); }
+.griffin-module-note { color: #7fa3b4; }
+.griffin-module-note.is-listening, .griffin-module-note.is-error { color: #ff8b86; }
+.griffin-module-note.is-warning { color: #e9b66d; }
+.griffin-module-note.is-success { color: #75d89c; }
+
+.griffin-volume-slider::-webkit-slider-runnable-track { border-color: #101820; background: linear-gradient(#253644, #070c12); box-shadow: inset 1px 2px 4px rgba(0,0,0,.75), 0 1px rgba(202, 237, 250, .1); }
+.griffin-volume-slider::-webkit-slider-thumb { border-color: #355767; background: linear-gradient(90deg, #447b8f, #a7edff 48%, #315868); box-shadow: inset 1px 0 rgba(255,255,255,.4), 0 0 9px rgba(86, 205, 239, .28); }
+.griffin-volume-slider::-moz-range-track { border-color: #101820; background: #111c25; }
+.griffin-volume-slider::-moz-range-thumb { border-color: #355767; background: #79cee5; }
+.griffin-volume-knob { border-color: #152a35; background: radial-gradient(circle at 36% 30%, #b9f0ff, #397286 52%, #101c25); box-shadow: inset 1px 1px rgba(255,255,255,.35), inset -2px -2px 4px rgba(0,0,0,.65), 0 0 14px rgba(65, 190, 229, .16), 0 5px 9px rgba(0,0,0,.46); }
+.griffin-volume-knob span { background: #061018; }
+
+.griffin-app-key { border-color: #160b08; background: rgba(19, 8, 6, .48); }
+.griffin-app-key > span { border-color: rgba(143, 210, 237, .2); background: linear-gradient(145deg, #263b4a, #080e14); box-shadow: inset 1px 1px rgba(220, 244, 255, .14), 0 3px 0 #030608, 0 6px 12px rgba(0,0,0,.5); }
+.griffin-app-key > strong { color: #e3cbb8; }
+.griffin-key-cluster .embossed-button { border-color: rgba(136, 199, 227, .2); color: #deedf5; background: #101923; }
+.griffin-instruction-plate { border-color: rgba(138, 202, 230, .18); color: #8ea4b3; text-shadow: 0 1px rgba(0,0,0,.8); background: rgba(8, 14, 21, .72); box-shadow: inset 1px 1px rgba(206, 238, 250, .08), inset -1px -1px rgba(0,0,0,.55); }
+.griffin-hardware-alert { border-color: rgba(230, 168, 91, .45); color: #ffdca5; background: rgba(74, 48, 18, .82); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 8px 18px rgba(0,0,0,.35); }
+.griffin-pairing-status > span { border-color: rgba(137, 204, 233, .2); color: #b8cad6; background: rgba(15, 24, 33, .82); box-shadow: inset 1px 1px rgba(219, 244, 255, .1), inset -1px -1px rgba(0,0,0,.45); }
+.griffin-pairing-control > label { color: #9cb0bf; }
+.remote-pointer-hint { border-color: rgba(140, 232, 255, .28); color: #d5f7ff; background: rgba(3, 10, 16, .82); box-shadow: 0 6px 18px rgba(0,0,0,.4); backdrop-filter: blur(14px); }
+.remote-scroll-tab { border-color: rgba(140, 232, 255, .2); color: #aeeeff; background: rgba(3, 10, 16, .88); box-shadow: inset 1px 1px 5px rgba(0,0,0,.68), 0 6px 18px rgba(0,0,0,.38); backdrop-filter: blur(14px); }
+.remote-tap-feedback__ring { border-color: #9cecff; background: rgba(93, 211, 245, .15); box-shadow: 0 0 16px rgba(83, 207, 244, .45); }
+.remote-tap-feedback__label { color: #daf8ff; background: rgba(4, 14, 21, .94); }
+.remote-rotate-hint { color: #c8d9e5; }
+
 @media (min-width: 700px) and (orientation: portrait) {
   .griffin-control-deck:not(.remote-immersive) { max-width: 460px; }
 }
 
 @media (orientation: landscape) {
   .remote-immersive .remote-monitor-panel { display: flex; min-height: 0; flex: 1 1 0%; flex-direction: column; }
-  .remote-immersive .remote-screen-bezel { min-height: 0; flex: 1 1 0%; }
-  .remote-immersive .remote-stage { height: 100%; }
+  .remote-immersive .remote-display-hardware { display: flex; min-height: 0; flex: 1 1 0%; flex-direction: column; }
+  .remote-immersive .remote-screen-bezel { display: flex; min-height: 0; flex: 1 1 0%; flex-direction: column; }
+  .remote-immersive .remote-stage { min-height: 0; flex: 1 1 0%; height: auto; }
   .remote-immersive .remote-control-rail { padding-right: .2rem; }
 }
 
@@ -955,6 +1123,7 @@ body::before { display: none; }
 .phone-contact > span:nth-child(2), .phone-history-list button > span:nth-child(2) { min-width: 0; }
 .phone-contact strong, .phone-contact small, .phone-history-list strong, .phone-history-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .phone-contact strong { font-size: .75rem; }.phone-contact small { margin-top: .1rem; color: var(--phone-muted); font-size: .61rem; }.phone-contact > svg { width: .8rem; color: var(--phone-muted); }
+.phone-contact em { display: flex; align-items: center; gap: .2rem; margin-top: .2rem; color: var(--phone-green); font: 750 .52rem/1 var(--griffin-font-data); letter-spacing: .025em; text-transform: uppercase; }.phone-contact em svg { width: .65rem; height: .65rem; }
 
 .phone-mission-form, .phone-contact-form { display: flex; flex-direction: column; gap: .65rem; border-top: 1px solid var(--phone-line); padding: .8rem; }
 .phone-mission-form { margin-top: auto; }.phone-contact-form { background: color-mix(in srgb, var(--phone-amber) 5%, transparent); }
@@ -968,6 +1137,7 @@ body::before { display: none; }
 .phone-primary-action { color: #fff9f6; background: linear-gradient(145deg, color-mix(in srgb, var(--phone-accent) 88%, white), color-mix(in srgb, var(--phone-accent) 80%, black)); box-shadow: 0 6px 14px color-mix(in srgb, var(--phone-accent) 20%, transparent); }
 .phone-primary-action:disabled { cursor: not-allowed; opacity: .42; box-shadow: none; }.phone-primary-action svg, .phone-stop-action svg { width: .92rem; height: .92rem; }
 .phone-inline-error { color: var(--phone-red); font-size: .64rem; line-height: 1.35; }
+.phone-allowlist-note { display: flex; align-items: flex-start; gap: .35rem; margin-top: -.25rem; color: var(--phone-muted); font-size: .57rem; line-height: 1.45; }.phone-allowlist-note svg { width: .75rem; height: .75rem; flex: none; margin-top: .04rem; color: var(--phone-green); }
 
 .phone-live-module { display: flex; min-height: 0; flex-direction: column; overflow: hidden; background: var(--phone-panel-strong); }
 .phone-status-mark { display: flex; align-items: center; gap: .3rem; color: var(--phone-muted); font: 800 .58rem/1 var(--griffin-font-data); letter-spacing: .08em; text-transform: uppercase; }

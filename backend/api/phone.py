@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
@@ -28,13 +29,17 @@ class CallCreate(BaseModel):
 
 async def _payload(request: Request) -> dict[str, Any]:
     data: dict[str, Any] = dict(request.query_params)
+    body = await request.body()
     try:
-        value = await request.json()
+        value = await request.json() if body else None
         if isinstance(value, dict):
             data.update(value)
             return data
     except Exception:
         pass
+    if "application/x-www-form-urlencoded" in request.headers.get("content-type", ""):
+        data.update(parse_qsl(body.decode("utf-8", errors="replace"), keep_blank_values=True))
+        return data
     try:
         data.update(dict(await request.form()))
     except Exception:
@@ -97,6 +102,11 @@ async def start_call(body: CallCreate, request: Request) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail={"code": "CALL_INVALID", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "PHONE_PROVIDER_REJECTED", "message": str(exc)},
+        ) from exc
 
 
 @router.post("/calls/{call_id}/cancel")
@@ -124,7 +134,18 @@ async def vobiz_recording(request: Request, job_id: str, token: str | None = Non
     _check(request, token)
     data = await _payload(request)
     user_text = _field(data, "user_text", "transcription", "text", "speech")
-    recording_url = _field(data, "recording_url", "RecordingUrl", "record_url", "audio_url", "url")
+    recording_url = _field(
+        data,
+        "recording_url",
+        "RecordingUrl",
+        "record_url",
+        "RecordUrl",
+        "RecordFile",
+        "audio_url",
+        "media_url",
+        "MediaUrl",
+        "url",
+    )
     try:
         xml = await get_state(request).phone.recording(
             job_id,

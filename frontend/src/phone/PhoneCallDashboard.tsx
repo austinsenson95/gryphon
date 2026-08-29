@@ -13,6 +13,7 @@ import {
   Radio,
   Send,
   Signal,
+  ShieldCheck,
   Sparkles,
   UserRoundPlus,
   X,
@@ -81,10 +82,11 @@ function AddContact({ onAdded, onClose }: { onAdded: (contact: PhoneContact) => 
   return <form className="phone-contact-form" onSubmit={(event) => void submit(event)}>
     <div className="phone-form-heading"><div><UserRoundPlus /><span>Add contact</span></div>{onClose && <button type="button" aria-label="Close add contact" onClick={onClose}><X /></button>}</div>
     <label>Name<input aria-label="Contact name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Rahul" /></label>
-    <label>Phone number<input aria-label="Phone number" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+91 98765 43210" inputMode="tel" /></label>
+    <label>Phone number<input aria-label="Phone number" aria-describedby="phone-allowlist-note" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+91 98765 43210" inputMode="tel" /></label>
+    <p id="phone-allowlist-note" className="phone-allowlist-note"><ShieldCheck />Saving authorizes this number for Griffin calls. Indian 10-digit mobile numbers automatically receive +91.</p>
     <label>Notes<input aria-label="Contact notes" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Friend · prefers evening calls" /></label>
     {error && <p role="alert" className="phone-inline-error">{error}</p>}
-    <button className="phone-primary-action" type="submit" disabled={busy || !name.trim() || !phone.trim()}>{busy ? <LoaderCircle className="animate-spin" /> : <Check />}Save contact</button>
+    <button className="phone-primary-action" type="submit" disabled={busy || !name.trim() || !phone.trim()}>{busy ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}Save &amp; authorize</button>
   </form>
 }
 
@@ -157,7 +159,7 @@ export function PhoneCallDashboard() {
         {showContactForm && <AddContact onAdded={(contact) => { setContacts((current) => [...current, contact]); setSelectedContact(contact.name) }} onClose={() => setShowContactForm(false)} />}
         <div className="phone-contact-list">
           {contacts.map((contact) => <button type="button" key={contact.id} className={cn("phone-contact", selectedContact === contact.name && "is-selected")} onClick={() => setSelectedContact(contact.name)}>
-            <span className="phone-contact__avatar">{contact.name.slice(0, 1).toUpperCase()}</span><span><strong>{contact.name}</strong><small>{contact.notes || contact.phone_number}</small></span><ChevronRight />
+            <span className="phone-contact__avatar">{contact.name.slice(0, 1).toUpperCase()}</span><span><strong>{contact.name}</strong><small>{contact.phone_number}{contact.notes ? ` · ${contact.notes}` : ""}</small><em><ShieldCheck />Authorized for calls</em></span><ChevronRight />
           </button>)}
           {!contacts.length && !showContactForm && <div className="phone-empty"><ContactRound /><p>No contacts yet.</p><button type="button" onClick={() => setShowContactForm(true)}>Add the first contact</button></div>}
         </div>

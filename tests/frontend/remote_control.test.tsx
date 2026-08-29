@@ -212,6 +212,15 @@ describe("Phone remote controls", () => {
     expect(sendRemoteInput).toHaveBeenCalledWith("paired-token", { type: "exit_fullscreen" })
   })
 
+  it("uses direct screen gestures without separate mouse action buttons", async () => {
+    render(<RemoteCockpit />)
+
+    expect(await screen.findByLabelText("Mac trackpad surface")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Click", exact: true })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Double-click" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Right-click" })).not.toBeInTheDocument()
+  })
+
   it("supports double-tap and two-finger scroll gestures", async () => {
     render(<RemoteCockpit />)
     const surface = await screen.findByLabelText("Mac trackpad surface")

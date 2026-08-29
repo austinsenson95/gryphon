@@ -2,6 +2,8 @@
 # Griffin Phase 0 — dev launcher: backend + frontend, LAN-accessible
 set -euo pipefail
 cd "$(dirname "$0")/.."
+PROJECT_ROOT="$(pwd)"
+RUNTIME_TARGET_FILE="$PROJECT_ROOT/.griffin-dev-backend"
 
 # shellcheck disable=SC1091
 source .venv/bin/activate
@@ -30,6 +32,12 @@ fi
 export PORT
 GRIFFIN_BACKEND_PROXY_TARGET="http://127.0.0.1:${PORT}"
 export GRIFFIN_BACKEND_PROXY_TARGET
+
+# Keep all development processes on the project database, independent of the
+# terminal's original working directory. The phone HTTPS launcher reads the
+# target file below so its Vobiz callbacks always return to this exact process.
+export DATABASE_URL="${DATABASE_URL:-sqlite:///$PROJECT_ROOT/griffin.db}"
+printf '%s\n' "$GRIFFIN_BACKEND_PROXY_TARGET" > "$RUNTIME_TARGET_FILE"
 
 GRIFFIN_PROTOCOL="http"
 DEFAULT_TLS_CERT="$(pwd)/config/tls/griffin.crt"
@@ -60,6 +68,9 @@ FRONTEND_PID=$!
 cleanup() {
   echo "Shutting down Griffin..."
   kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true
+  if [ -f "$RUNTIME_TARGET_FILE" ] && [ "$(sed -n '1p' "$RUNTIME_TARGET_FILE")" = "$GRIFFIN_BACKEND_PROXY_TARGET" ]; then
+    rm -f "$RUNTIME_TARGET_FILE"
+  fi
 }
 trap cleanup INT TERM EXIT
 
@@ -67,6 +78,7 @@ LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{
 echo ""
 echo "  Local:   ${GRIFFIN_PROTOCOL}://localhost:5173"
 echo "  LAN:     ${GRIFFIN_PROTOCOL}://${LAN_IP}:5173   (open this from your phone on the same Wi-Fi)"
+echo "  Phone:   callbacks should target ${GRIFFIN_BACKEND_PROXY_TARGET}"
 if [ "$GRIFFIN_PROTOCOL" = "http" ]; then
   echo "  Voice:   run ./scripts/setup-phone-https.sh once to enable the iPhone microphone"
 fi

@@ -17,7 +17,6 @@ import {
   Minimize2,
   Move,
   MousePointer2,
-  MousePointerClick,
   MonitorUp,
   Power,
   RefreshCw,
@@ -772,11 +771,6 @@ function LiveRemote({ status, token, onStop }: { status: RemoteStatus; token: st
               <div className="remote-monitor-stand" aria-hidden="true"><span /></div>
             </div>
           </MetalPanel>
-          <div className="remote-click-row">
-            <PhysicalButton onClick={() => void send({ type: "tap", ...pointerPosition.current })}><MousePointerClick className="h-4 w-4" />Click</PhysicalButton>
-            <PhysicalButton onClick={() => void send({ type: "double_tap", ...pointerPosition.current })}>Double-click</PhysicalButton>
-            <PhysicalButton onClick={() => void send({ type: "secondary_tap", ...pointerPosition.current })}>Right-click</PhysicalButton>
-          </div>
         </div>
 
         <div className="remote-control-rail">
